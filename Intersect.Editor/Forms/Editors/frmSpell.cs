@@ -183,6 +183,7 @@ namespace Intersect.Editor.Forms.Editors
             lblCooldownGroup.Text = Strings.SpellEditor.CooldownGroup;
             chkIgnoreGlobalCooldown.Text = Strings.SpellEditor.IgnoreGlobalCooldown;
             chkIgnoreCdr.Text = Strings.SpellEditor.IgnoreCooldownReduction;
+            chkFreezeMovement.Text = Strings.ItemEditor.freezemovement;
 
             grpTargetInfo.Text = Strings.SpellEditor.targetting;
             lblTargetType.Text = Strings.SpellEditor.targettype;
@@ -303,6 +304,8 @@ namespace Intersect.Editor.Forms.Editors
 
                 nudHPCost.Value = mEditorItem.VitalCost[(int) Vitals.Health];
                 nudMpCost.Value = mEditorItem.VitalCost[(int) Vitals.Mana];
+
+                chkFreezeMovement.Checked = mEditorItem.FreezeMovement;
 
                 txtCannotCast.Text = mEditorItem.CannotCastMessage;
 
@@ -1083,6 +1086,11 @@ namespace Intersect.Editor.Forms.Editors
         {
             Guid animationId = AnimationBase.IdFromList(cmbTickAnimation.SelectedIndex - 1);
             mEditorItem.TickAnimation = AnimationBase.Get(animationId);
+        }
+
+        private void chkFreezeMovement_CheckedChanged(object sender, EventArgs e)
+        {
+            mEditorItem.FreezeMovement = chkFreezeMovement.Checked;
         }
     }
 

@@ -93,6 +93,8 @@ namespace Intersect.GameObjects
 
         //Spell Bound
         public bool Bound { get; set; }
+        
+        public bool FreezeMovement { get; set; } = false;
 
         //Requirements
         [Column("CastRequirements")]

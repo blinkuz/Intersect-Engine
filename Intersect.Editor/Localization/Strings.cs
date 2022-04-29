@@ -3277,6 +3277,8 @@ Tick timer saved in server config.json.";
             public static LocalizedString foldertitle = @"Add Folder";
 
             public static LocalizedString folderprompt = @"Enter a name for the folder you'd like to add:";
+            
+            public static LocalizedString freezemovement = @"Freeze Movement?";
 
             public static LocalizedString general = @"General";
 

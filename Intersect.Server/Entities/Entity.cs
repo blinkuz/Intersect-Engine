@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -922,7 +922,10 @@ namespace Intersect.Server.Entities
 
         public virtual void Move(int moveDir, Player forPlayer, bool doNotUpdate = false, bool correction = false)
         {
-            if (Timing.Global.Milliseconds < MoveTimer || (!Options.Combat.MovementCancelsCast && IsCasting))
+            var spell = (SpellCastSlot >= 0) ? SpellBase.Get(Spells[SpellCastSlot].SpellId) : null;
+            bool freezeWhileCasting = (spell != null) ? spell.FreezeMovement : true;
+
+            if (Timing.Global.Milliseconds <= MoveTimer || (freezeWhileCasting && IsCasting))
             {
                 return;
             }

@@ -1922,8 +1922,10 @@ namespace Intersect.Client.Entities
 
             if (MoveDir > -1 && Globals.EventDialogs.Count == 0)
             {
+                var spell = SpellBase.Get(SpellCast);
+                bool moveWhileCasting = (spell != null) ? !spell.FreezeMovement : true;
                 //Try to move if able and not casting spells.
-                if (!IsMoving && MoveTimer < Timing.Global.Ticks / TimeSpan.TicksPerMillisecond && (Options.Combat.MovementCancelsCast || !IsCasting))
+                if (!IsMoving && MoveTimer < Timing.Global.Ticks / TimeSpan.TicksPerMillisecond && (moveWhileCasting || !IsCasting))
                 {
                     if (Options.Combat.MovementCancelsCast)
                     {

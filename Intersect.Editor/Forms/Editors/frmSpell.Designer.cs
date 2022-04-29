@@ -34,6 +34,7 @@ namespace Intersect.Editor.Forms.Editors
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(FrmSpell));
             this.pnlContainer = new System.Windows.Forms.Panel();
             this.grpGeneral = new DarkUI.Controls.DarkGroupBox();
+            this.chkFreezeMovement = new DarkUI.Controls.DarkCheckBox();
             this.btnAddFolder = new DarkUI.Controls.DarkButton();
             this.lblFolder = new System.Windows.Forms.Label();
             this.cmbFolder = new DarkUI.Controls.DarkComboBox();
@@ -243,6 +244,7 @@ namespace Intersect.Editor.Forms.Editors
             // 
             this.grpGeneral.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(48)))));
             this.grpGeneral.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(90)))), ((int)(((byte)(90)))), ((int)(((byte)(90)))));
+            this.grpGeneral.Controls.Add(this.chkFreezeMovement);
             this.grpGeneral.Controls.Add(this.btnAddFolder);
             this.grpGeneral.Controls.Add(this.lblFolder);
             this.grpGeneral.Controls.Add(this.cmbFolder);
@@ -267,6 +269,18 @@ namespace Intersect.Editor.Forms.Editors
             this.grpGeneral.TabIndex = 17;
             this.grpGeneral.TabStop = false;
             this.grpGeneral.Text = "General";
+            // 
+            // chkFreezeMovement
+            // 
+            this.chkFreezeMovement.AutoSize = true;
+            this.chkFreezeMovement.CheckAlign = System.Drawing.ContentAlignment.MiddleRight;
+            this.chkFreezeMovement.Location = new System.Drawing.Point(78, 270);
+            this.chkFreezeMovement.Name = "chkFreezeMovement";
+            this.chkFreezeMovement.RightToLeft = System.Windows.Forms.RightToLeft.Yes;
+            this.chkFreezeMovement.Size = new System.Drawing.Size(117, 17);
+            this.chkFreezeMovement.TabIndex = 60;
+            this.chkFreezeMovement.Text = "Freeze Movement?";
+            this.chkFreezeMovement.CheckedChanged += new System.EventHandler(this.chkFreezeMovement_CheckedChanged);
             // 
             // btnAddFolder
             // 
@@ -2570,5 +2584,6 @@ namespace Intersect.Editor.Forms.Editors
         private System.Windows.Forms.Label lblManaDamage;
         private System.Windows.Forms.Label lblTickAnimation;
         private DarkComboBox cmbTickAnimation;
+        private DarkCheckBox chkFreezeMovement;
     }
 }

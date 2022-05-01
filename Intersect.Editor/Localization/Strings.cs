@@ -244,7 +244,9 @@ namespace Intersect.Editor.Localization
 
         public static string GetEventConditionalDesc(NoNpcsOnMapCondition condition)
         {
-            return Strings.EventConditionDesc.nonpcsonmap;
+            return condition.SpecificNpc ?
+                Strings.EventConditionDesc.NoNpcsOfTypeOnMap.ToString(NpcBase.GetName(condition.NpcId)) :
+                Strings.EventConditionDesc.NoNpcsOnMap.ToString();
         }
 
         public static string GetEventConditionalDesc(GenderIsCondition condition)
@@ -1292,6 +1294,10 @@ Tick timer saved in server config.json.";
 
             public static LocalizedString disconnectedsavecaption = @"Disconnected -- Export Map?";
 
+            public static LocalizedString InvalidDirectory = @"You have selected an invalid directory, would you like to try again?";
+
+            public static LocalizedString InvalidDirectoryCaption = @"Invalid Directory";
+
             public static LocalizedString importfailed =
                 @"Cannot import map. Currently selected map is not an Intersect map file or was exported with a different version of the Intersect editor!";
 
@@ -2085,14 +2091,14 @@ Tick timer saved in server config.json.";
                 {4, @"Has item..."},
                 {5, @"Class is..."},
                 {6, @"Knows spell..."},
-                {7, @"Level or Stat is...."},
-                {8, @"Self Switch is...."},
-                {9, @"Power level is...."},
-                {10, @"Time is between...."},
-                {11, @"Can Start Quest...."},
-                {12, @"Quest In Progress...."},
-                {13, @"Quest Completed...."},
-                {14, @"No NPCs on Map"},
+                {7, @"Level or Stat is..."},
+                {8, @"Self Switch is..."},
+                {9, @"Power level is..."},
+                {10, @"Time is between..."},
+                {11, @"Can Start Quest..."},
+                {12, @"Quest In Progress..."},
+                {13, @"Quest Completed..."},
+                {14, @"No NPCs on Map..."},
                 {15, @"Gender is..."},
                 {16, @"Map is..."},
                 {17, @"Item Equipped is..."},
@@ -2151,6 +2157,12 @@ Tick timer saved in server config.json.";
             [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
             public static LocalizedString HasElse = @"Has Else";
 
+            [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+            public static LocalizedString NpcGroup = @"NPCs";
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+            public static LocalizedString NpcLabel = @"NPC:";
+
             public static LocalizedString numericvariable = @"Numeric Variable:";
 
             public static LocalizedString okay = @"Ok";
@@ -2200,6 +2212,9 @@ Tick timer saved in server config.json.";
             };
 
             public static LocalizedString selfswitchis = @"Self Switch Is";
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+            public static LocalizedString SpecificNpcCheck = @"Specify NPC?";
 
             public static LocalizedString spell = @"Spell:";
 
@@ -2314,7 +2329,9 @@ Tick timer saved in server config.json.";
 
             public static LocalizedString negated = @"NOT [{00}]";
 
-            public static LocalizedString nonpcsonmap = @"No NPCs on the map";
+            public static LocalizedString NoNpcsOnMap = @"No NPCs on the map";
+
+            public static LocalizedString NoNpcsOfTypeOnMap = @"No NPCs of type {00} on the map";
 
             public static LocalizedString notequal = @"does not equal {00}";
 
@@ -3181,6 +3198,10 @@ Tick timer saved in server config.json.";
 
             public static LocalizedString basedamage = @"Base Damage:";
 
+            public static LocalizedString BlockChance = @"Block Chance (%):";
+            public static LocalizedString BlockAmount = @"Block Amount (%):";
+            public static LocalizedString BlockAbsorption = @"Block Damage Absorption (%):";
+
             public static LocalizedString bonusamount = @"Effect Amount (%):";
 
             public static LocalizedString bonuseffect = @"Bonus Effect:";
@@ -3404,6 +3425,8 @@ Tick timer saved in server config.json.";
 
             public static LocalizedString vitalbonuses = @"Vital Bonuses";
 
+            public static LocalizedString ShieldProperties = @"Shield Properties:";
+
             public static LocalizedString weaponproperties = @"Weapon Properties";
 
         }
@@ -3585,6 +3608,8 @@ Tick timer saved in server config.json.";
             public static LocalizedString title = @"Intersect Editor - {00}";
 
             public static LocalizedString tools = @"Tools";
+
+            public static LocalizedString MenuToolsPackageUpdate = @"Package Update";
 
             public static LocalizedString toolsdir = @"tools";
 
@@ -5020,6 +5045,9 @@ Negative values for time to flow backwards.";
 
         public struct UpdatePacking
         {
+            public static LocalizedString SourceDirectoryPromptDescription = @"Pick the directory from which to generate the update";
+
+            public static LocalizedString TargetDirectoryPromptDescription = @"Pick the directory in which to save the packaged update";
 
             public static LocalizedString Title = @"Packaging Updater Files, Please Wait!";
 

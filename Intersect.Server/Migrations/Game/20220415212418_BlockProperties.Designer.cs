@@ -3,14 +3,16 @@ using System;
 using Intersect.Server.Database.GameData;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace Intersect.Server.Migrations.Game
 {
     [DbContext(typeof(GameContext))]
-    partial class GameContextModelSnapshot : ModelSnapshot
+    [Migration("20220415212418_BlockProperties")]
+    partial class BlockProperties
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -127,16 +129,12 @@ namespace Intersect.Server.Migrations.Game
                     b.Property<Guid>("EventId")
                         .HasColumnName("Event");
 
-                    b.Property<int>("FailureChance");
-
                     b.Property<string>("Folder");
 
                     b.Property<string>("IngredientsJson")
                         .HasColumnName("Ingredients");
 
                     b.Property<Guid>("ItemId");
-
-                    b.Property<int>("ItemLossChance");
 
                     b.Property<string>("Name");
 
@@ -467,7 +465,9 @@ namespace Intersect.Server.Migrations.Game
                     b.Property<string>("Sprite");
 
                     b.Property<bool>("Swarm");
-                    
+
+                    b.Property<double>("Tenacity");
+
                     b.Property<long>("TimeCreated");
 
                     b.HasKey("Id");
@@ -723,8 +723,6 @@ namespace Intersect.Server.Migrations.Game
                         .HasColumnName("Event");
 
                     b.Property<string>("Folder");
-
-                    b.Property<bool>("FreezeMovement");
 
                     b.Property<Guid>("HitAnimationId")
                         .HasColumnName("HitAnimation");

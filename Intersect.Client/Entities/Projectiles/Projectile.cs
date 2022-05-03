@@ -141,10 +141,15 @@ namespace Intersect.Client.Entities.Projectiles
             return mMyBase.Animations.Count - 1;
         }
 
-        private void AddProjectileSpawns()
+               private void AddProjectileSpawns()
         {
             var spawn = FindSpawnAnimationData();
             var animBase = AnimationBase.Get(mMyBase.Animations[spawn].AnimationId);
+            var animCopy = animBase;
+            var onlyRenderX = mMyBase.OnlyRenderX;
+            var onlyRenderY = mMyBase.OnlyRenderY;
+            var onlyRenderD = mMyBase.OnlyRenderD;
+            bool onlyRender = mMyBase.OnlyRenderEnabled;
 
             for (var x = 0; x < ProjectileBase.SPAWN_LOCATIONS_WIDTH; x++)
             {
@@ -152,17 +157,25 @@ namespace Intersect.Client.Entities.Projectiles
                 {
                     for (var d = 0; d < ProjectileBase.MAX_PROJECTILE_DIRECTIONS; d++)
                     {
-                        if (mMyBase.SpawnLocations[x, y].Directions[d] == true)
+                        if (mMyBase.SpawnLocations[x, y].Directions[d])
                         {
+                            if (onlyRender && !(x == onlyRenderX && y == onlyRenderY && d == onlyRenderD))
+                            {
+                                animBase = null;
+                            }
+                            else
+                            {
+                                animBase = animCopy;
+                            }
                             var s = new ProjectileSpawns(
                                 FindProjectileRotationDir(Dir, d), X + FindProjectileRotationX(Dir, x - 2, y - 2),
                                 Y + FindProjectileRotationY(Dir, x - 2, y - 2), Z, MapId, animBase,
-                                mMyBase.Animations[spawn].AutoRotate, mMyBase, this
-                            );
+                                mMyBase.Animations[spawn].AutoRotate, mMyBase, this);
 
                             Spawns[mSpawnedAmount] = s;
                             if (Collided(mSpawnedAmount))
                             {
+                              
                                 Spawns[mSpawnedAmount].Dispose();
                                 Spawns[mSpawnedAmount] = null;
                                 mSpawnCount--;
@@ -477,20 +490,30 @@ namespace Intersect.Client.Entities.Projectiles
                         {
                             Spawns[s].OffsetX = GetRangeX(Spawns[s].Dir, GetDisplacement(Spawns[s].SpawnTime));
                             Spawns[s].OffsetY = GetRangeY(Spawns[s].Dir, GetDisplacement(Spawns[s].SpawnTime));
-                            Spawns[s]
-                                .Anim.SetPosition(
-                                    Maps.MapInstance.Get(Spawns[s].SpawnMapId).GetX() +
-                                    Spawns[s].SpawnX * Options.TileWidth +
-                                    Spawns[s].OffsetX +
-                                    Options.TileWidth / 2,
-                                    Maps.MapInstance.Get(Spawns[s].SpawnMapId).GetY() +
-                                    Spawns[s].SpawnY * Options.TileHeight +
-                                    Spawns[s].OffsetY +
-                                    Options.TileHeight / 2, X, Y, MapId, Spawns[s].AutoRotate ? Spawns[s].Dir : 0,
-                                    Spawns[s].Z
-                                );
-
-                            Spawns[s].Anim.Update();
+                            
+                            if (mMyBase.StaticProjectile || mMyBase.StaticProjectileAnim)
+                            {
+                                Spawns[s].OffsetX = 0;
+                                Spawns[s].OffsetY = 0;
+                            }
+                            
+                            if (Spawns[s].Anim != null)
+                            {
+                                Spawns[s]
+                                    .Anim.SetPosition(
+                                        Maps.MapInstance.Get(Spawns[s].SpawnMapId).GetX() +
+                                        Spawns[s].SpawnX * Options.TileWidth +
+                                        Spawns[s].OffsetX +
+                                        Options.TileWidth / 2,
+                                        Maps.MapInstance.Get(Spawns[s].SpawnMapId).GetY() +
+                                        Spawns[s].SpawnY * Options.TileHeight +
+                                        Spawns[s].OffsetY +
+                                        Options.TileHeight / 2, X, Y, MapId, Spawns[s].AutoRotate ? Spawns[s].Dir : 0,
+                                        Spawns[s].Z
+                                    );
+                                Spawns[s].Anim.Update();
+                            }
+                            
                         }
                     }
                 }

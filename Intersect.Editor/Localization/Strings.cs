@@ -4220,6 +4220,19 @@ Tick timer saved in server config.json.";
 
             public static LocalizedString range = @"Range:";
 
+      
+            public static LocalizedString chkStaticProj = @"Static Projectiles? [Anim + Spawn](Life Time in ms)";
+
+            public static LocalizedString chkchkStaticProjAnim = @"Static Projectiles? [Client Side Anim]";
+
+            public static LocalizedString chkOnlyRender = @"Only Render Projectile Animation at:";
+
+            public static LocalizedString lblOnlyRenderWeb = @"[?]";
+
+            public static LocalizedString chkOneC2Kill = @"One Collide to kill Every Projectile?";
+            
+            public static LocalizedString hitradius = @"Hit Radius:";
+
             public static LocalizedString removeanimation = @"Remove";
 
             public static LocalizedString save = @"Save";

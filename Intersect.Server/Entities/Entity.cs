@@ -922,7 +922,7 @@ namespace Intersect.Server.Entities
 
         public virtual void Move(int moveDir, Player forPlayer, bool doNotUpdate = false, bool correction = false)
         {
-            var spell = (SpellCastSlot >= 0) ? SpellBase.Get(Spells[SpellCastSlot].SpellId) : null;
+            var spell = (SpellCastSlot >= 0 && SpellCastSlot < Spells.Count) ? SpellBase.Get(Spells[SpellCastSlot].SpellId) : null;
             bool freezeWhileCasting = (spell != null) ? spell.FreezeMovement : true;
 
             if (Timing.Global.Milliseconds <= MoveTimer || (freezeWhileCasting && IsCasting))
@@ -932,12 +932,6 @@ namespace Intersect.Server.Entities
 
             lock (EntityLock)
             {
-                if (this is Player && IsCasting && Options.Combat.MovementCancelsCast)
-                {
-                    CastTime = 0;
-                    CastTarget = null;
-                }
-
                 var xOffset = 0;
                 var yOffset = 0;
                 switch (moveDir)
@@ -1042,8 +1036,6 @@ namespace Intersect.Server.Entities
 
                     }
 
-
-
                     if (doNotUpdate == false)
                     {
                         if (this is EventPageInstance)
@@ -1079,9 +1071,17 @@ namespace Intersect.Server.Entities
                                             continue;
                                         }
 
+                                        // Kill Every Projectile on Hit.
+                                        if (spawn.IsAtLocation(MapId, X, Y, Z)
+                                            && spawn.HitEntity(this) 
+                                            && spawn.ProjectileBase.OneCollide2KillSpawns)
+                                        {
+                                            projectile.KillEverySpawn(spawn);
+                                        }
+                                        // Default Style !
                                         if (spawn.IsAtLocation(MapId, X, Y, Z) && spawn.HitEntity(this))
                                         {
-                                            spawn.Dead = true;
+                                            projectile.KillSpawn(spawn);
                                         }
                                     }
                                 }

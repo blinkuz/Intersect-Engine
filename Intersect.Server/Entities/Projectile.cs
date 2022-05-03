@@ -109,9 +109,15 @@ namespace Intersect.Server.Entities
                             Spawns[mSpawnedAmount] = s;
                             mSpawnedAmount++;
                             mSpawnCount++;
+                            // Destruir Proyectiles uno a uno durante el Spawn si existe colisión.
                             if (CheckForCollision(s))
                             {
-                                s.Dead = true;
+                                KillSpawn(s);
+                            }
+                            // Destruir todos los Proyectiles si uno colisiona durante el Spawn.
+                            if (CheckForCollision(s) && s.ProjectileBase.OneCollide2KillSpawns)
+                            {
+                                Die(false, null);
                             }
                         }
                     }
@@ -344,7 +350,7 @@ namespace Intersect.Server.Entities
                 AddProjectileSpawns(spawnDeaths);
             }
 
-            ProcessFragments(projDeaths, spawnDeaths);
+            ProcessFragments();
         }
 
         private int GetRangeX(int direction, int range)
@@ -389,7 +395,7 @@ namespace Intersect.Server.Entities
             }
         }
 
-        public void ProcessFragments(List<Guid> projDeaths, List<KeyValuePair<Guid, int>> spawnDeaths)
+        public void ProcessFragments()
         {
             if (Base == null)
             {
@@ -398,32 +404,36 @@ namespace Intersect.Server.Entities
 
             if (mSpawnCount != 0 || mQuantity < Base.Quantity)
             {
-                for (var i = 0; i < mSpawnedAmount; i++)
+                for (var i = 0; i < Spawns.Length; i++)
                 {
                     var spawn = Spawns[i];
-                    if (spawn != null)
+                    if (spawn != null && Timing.Global.Milliseconds >= spawn.TransmittionTimer)
                     {
-                        while (Timing.Global.Milliseconds > spawn.TransmittionTimer && Spawns[i] != null)
+                        // Variables.
+                        var x = spawn.X;
+                        var y = spawn.Y;
+                        var map = spawn.MapId;
+                        var killSpawn = MoveFragment(spawn);
+                        var spawnPos = (x != spawn.X || y != spawn.Y || map != spawn.MapId);
+                        bool killEverySpawn = spawn.ProjectileBase.OneCollide2KillSpawns;
+                        // Swap killSpawn variable (check if moving) to check collision.
+                        if (!killSpawn && spawnPos)
                         {
-                            var x = spawn.X;
-                            var y = spawn.Y;
-                            var map = spawn.MapId;
-                            var killSpawn = false;
-                            if (!spawn.Dead)
-                            {
-                                killSpawn = MoveFragment(spawn);
-                                if (!killSpawn && (x != spawn.X || y != spawn.Y || map != spawn.MapId))
-                                {
-                                    killSpawn = CheckForCollision(spawn);
-                                }
-                            }
-
-                            if (killSpawn || spawn.Dead)
-                            {
-                                spawnDeaths.Add(new KeyValuePair<Guid, int>(Id, i));
-                                Spawns[i] = null;
-                                mSpawnCount--;
-                            }
+                            killSpawn = CheckForCollision(spawn);
+                        }
+                        //
+                        // Kill Projectiles by count - default style!.
+                        if (killSpawn && !killEverySpawn)
+                        {
+                            KillSpawn(spawn);
+                            continue;
+                        }
+                        //
+                        // Kill Every Projectile Spawn.
+                        if (killSpawn && killEverySpawn)
+                        {
+                            KillEverySpawn(spawn);
+                            continue;
                         }
                     }
                 }
@@ -432,8 +442,37 @@ namespace Intersect.Server.Entities
             {
                 lock (EntityLock)
                 {
-                    projDeaths.Add(Id);
-                    Die(false);
+                    Die(false, null);
+                }
+            }
+        }
+        
+        public void KillSpawn(ProjectileSpawn spawn)
+        {
+            if (spawn != null && Spawns.Contains(spawn))
+            {
+                for (var i = 0; i < Spawns.Length; i++)
+                {
+                    if (spawn == Spawns[i])
+                    {
+                        Spawns[i] = null;
+                        mSpawnCount--;
+                    }
+                }
+            }
+        }
+
+        public void KillEverySpawn(ProjectileSpawn spawn)
+        {
+            if (spawn != null && Spawns.Contains(spawn))
+            {
+                for (var i = 0; i < Spawns.Length; i++)
+                { 
+                    if (spawn == Spawns[i])
+                    {
+                        Spawns[i] = null;
+                        mSpawnCount = 0;
+                    }
                 }
             }
         }
@@ -507,11 +546,19 @@ namespace Intersect.Server.Entities
                         {
                             return killSpawn;
                         }
+                    }else if (spawn.ProjectileBase.HitRadius > 1)
+                    {
+                        if (GetDistanceTo(map, entities[z].X, entities[z].Y) <= Base.HitRadius && entities[z].Z == spawn.Z)
+                        { 
+                            spawn.HitEntity(entities[z]);
+                        }
                     }
                     else
                     {
                         if (z == entities.Count - 1)
                         {       
+                            spawn.TransmittionTimer = Timing.Global.Milliseconds + (long) ((float) Base.Speed / (float) Base.Range);
+                            
                             if (spawn.Distance >= Base.Range)
                             {
                                 killSpawn = true;
@@ -529,8 +576,15 @@ namespace Intersect.Server.Entities
             float newx = spawn.X;
             float newy = spawn.Y;
             var newMapId = spawn.MapId;
+            bool staticProj = spawn.ProjectileBase.StaticProjectile;
 
-            if (move)
+            if (move && staticProj)
+            {
+                newx = spawn.X;
+                newy = spawn.Y;
+            }
+
+            if (move && !staticProj)
             {
                 spawn.Distance++;
                 spawn.TransmittionTimer += (long)((float)Base.Speed / (float)Base.Range);

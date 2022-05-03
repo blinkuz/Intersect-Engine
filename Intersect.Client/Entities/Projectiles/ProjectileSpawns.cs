@@ -62,7 +62,10 @@ namespace Intersect.Client.Entities.Projectiles
             MapId = mapId;
             SpawnMapId = MapId;
             Dir = dir;
-            Anim = new Animation(animBase, true, autoRotate, Z, parent);
+            if (animBase != null)
+            {
+                Anim = new Animation(animBase, true, autoRotate, Z, parent);
+            }
             AutoRotate = autoRotate;
             ProjectileBase = projectileBase;
             TransmittionTimer = Timing.Global.Milliseconds +
@@ -71,7 +74,7 @@ namespace Intersect.Client.Entities.Projectiles
 
         public void Dispose()
         {
-            Anim.DisposeNextDraw();
+            Anim?.DisposeNextDraw();
         }
 
     }

@@ -75,6 +75,22 @@ namespace Intersect.GameObjects
         public bool GrappleHook { get; set; }
 
         public bool IgnoreActiveResources { get; set; }
+        
+        //
+        public bool OneCollide2KillSpawns { get; set; }
+
+        public bool StaticProjectile { get; set; }
+
+        public bool StaticProjectileAnim { get; set; }
+
+        public bool OnlyRenderEnabled { get; set; }
+
+        public int OnlyRenderX { get; set; } = 0;
+
+        public int OnlyRenderY { get; set; } = 0;
+
+        public int OnlyRenderD { get; set; } = 0;
+        //
 
         public bool IgnoreExhaustedResources { get; set; }
 
@@ -89,6 +105,8 @@ namespace Intersect.GameObjects
         public int Quantity { get; set; } = 1;
 
         public int Range { get; set; } = 1;
+        
+        public int HitRadius { get; set; }
 
         [Column("SpawnLocations")]
         [JsonIgnore]

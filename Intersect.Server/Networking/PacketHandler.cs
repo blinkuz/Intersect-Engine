@@ -2898,6 +2898,19 @@ namespace Intersect.Server.Networking
             player.PictureClosed(packet.EventId);
         }
 
+        //RespawnPacket
+        public void HandlePacket(Client client, RespawnPacket packet)
+        {
+            var player = client?.Entity;
+            if (player == null)
+            {
+                return;
+            }
+
+            player?.Reset();
+            player?.Respawn();
+        }
+
         #endregion
 
         #region "Editor Packets"

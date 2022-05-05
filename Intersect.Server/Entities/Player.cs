@@ -229,6 +229,9 @@ namespace Intersect.Server.Entities
         [NotMapped, JsonIgnore]
         public int InstanceLives { get; set; }
 
+        [NotMapped] public int DeadSeconds { get; set; }
+        [NotMapped] public long DeadTimer { get; set; }
+
         public static Player FindOnline(Guid id)
         {
             return OnlinePlayers.ContainsKey(id) ? OnlinePlayers[id] : null;
@@ -551,6 +554,21 @@ namespace Intersect.Server.Entities
                     }
 
                     base.Update(timeMs);
+                    
+                    if (IsDead() && DeadTimer < Timing.Global.Milliseconds && DeadSeconds > 0)
+                    {
+                        DeadSeconds--;
+                        if (DeadSeconds <= 0)
+                        {
+                            Reset();
+                            Respawn();
+                        }
+                        else
+                        {
+                            PacketSender.SendActionMsg(this, DeadSeconds.ToString(), Color.Red);
+                        }
+                        DeadTimer = Timing.Global.Milliseconds + 1000;
+                    }
 
                     if (mAutorunCommonEventTimer < Timing.Global.Milliseconds)
                     {
@@ -828,7 +846,7 @@ namespace Intersect.Server.Entities
         }
 
         //Spawning/Dying
-        private void Respawn()
+        public void Respawn()
         {
             //Remove any damage over time effects
             DoT.Clear();
@@ -849,6 +867,7 @@ namespace Intersect.Server.Entities
             }
 
             PacketSender.SendEntityDataToProximity(this);
+            PacketSender.SendPlayerRespawn(this);
 
             //Search death common event trigger
             StartCommonEventsWithTrigger(CommonEventTrigger.OnRespawn);
@@ -904,9 +923,10 @@ namespace Intersect.Server.Entities
                 }
             }
             PacketSender.SendEntityDie(this);
-            Reset();
-            Respawn();
+            //Reset();
+            //Respawn();
             PacketSender.SendInventory(this);
+            this.DeadSeconds = 10;
         }
 
         public override void ProcessRegen()

@@ -319,6 +319,11 @@ namespace Intersect.Client.Entities
 
         public void TryDropItem(int index)
         {
+            if (this.IsDead())
+            {
+                return;
+            }
+            
             var slot = Inventory[index];
             var descriptor = ItemBase.Get(slot.ItemId);
             if (descriptor == default)
@@ -382,6 +387,11 @@ namespace Intersect.Client.Entities
 
         public void TryUseItem(int index)
         {
+            if (this.IsDead())
+            {
+                return;
+            }
+            
             if (!IsItemOnCooldown(index) &&
                 index >= 0 && index < Globals.Me.Inventory.Length && Globals.Me.Inventory[index]?.Quantity > 0)
             {
@@ -805,6 +815,11 @@ namespace Intersect.Client.Entities
         //Trade
         public void TryTradeItem(int index)
         {
+            if (this.IsDead())
+            {
+                return;
+            }
+
             if (ItemBase.Get(Inventory[index].ItemId) != null)
             {
                 if (Inventory[index].Quantity > 1)
@@ -886,6 +901,11 @@ namespace Intersect.Client.Entities
 
         public void TryUseSpell(int index)
         {
+            if (this.IsDead())
+            {
+                return;
+            }
+            
             if (Spells[index].Id != Guid.Empty &&
                 (!Globals.Me.SpellCooldowns.ContainsKey(Spells[index].Id) ||
                  Globals.Me.SpellCooldowns[Spells[index].Id] < Timing.Global.Milliseconds))
@@ -1386,7 +1406,7 @@ namespace Intersect.Client.Entities
 
         public bool TryAttack()
         {
-            if (AttackTimer > Timing.Global.Ticks / TimeSpan.TicksPerMillisecond || IsBlocking || (IsMoving && !Options.Instance.PlayerOpts.AllowCombatMovement))
+            if (AttackTimer > Timing.Global.Ticks / TimeSpan.TicksPerMillisecond || IsBlocking || (IsMoving && !Options.Instance.PlayerOpts.AllowCombatMovement) || this.IsDead())
             {
                 return false;
             }
@@ -1885,6 +1905,11 @@ namespace Intersect.Client.Entities
         {
             //Check if player is crafting
             if (Globals.InCraft == true)
+            {
+                return;
+            }
+
+            if (this.IsDead())
             {
                 return;
             }

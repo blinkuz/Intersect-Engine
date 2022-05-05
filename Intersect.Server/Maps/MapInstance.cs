@@ -274,7 +274,7 @@ namespace Intersect.Server.Maps
         /// <param name="en">The entity to add.</param>
         public void AddEntity(Entity en)
         {
-            if (en != null && !en.IsDead() && en.MapInstanceId == MapInstanceId)
+            if (en != null && (!en.IsDead() || en.GetVital((int) Vitals.Health) <= 0) && en.MapInstanceId == MapInstanceId)
             {
                 if (!mEntities.ContainsKey(en.Id))
                 {
@@ -501,6 +501,7 @@ namespace Intersect.Server.Maps
                     MapInstanceId = processLayer
                 };
 
+                npc.Reset();
                 AddEntity(npc);
                 PacketSender.SendEntityDataToProximity(npc);
 
@@ -1286,7 +1287,7 @@ namespace Intersect.Server.Maps
                 if (NpcSpawnInstances.ContainsKey(spawns[i]))
                 {
                     var npcSpawnInstance = NpcSpawnInstances[spawns[i]];
-                    if (npcSpawnInstance != null && npcSpawnInstance.Entity.Dead)
+                    if (npcSpawnInstance != null && (npcSpawnInstance.Entity.Dead || npcSpawnInstance.Entity.GetVital(Vitals.Health) <= 0))
                     {
                         if (npcSpawnInstance.RespawnTime == -1)
                         {

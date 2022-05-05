@@ -51,7 +51,7 @@ namespace Intersect.Server.Entities
                     {
                         top = pair.Key;
                         damage = pair.Value;
-                    }
+                    } 
                 }
                 return top;
             } 
@@ -308,6 +308,11 @@ namespace Intersect.Server.Entities
         public override bool CanAttack(Entity entity, SpellBase spell)
         {
             if (!base.CanAttack(entity, spell))
+            {
+                return false;
+            }
+
+            if (entity.IsDead())
             {
                 return false;
             }

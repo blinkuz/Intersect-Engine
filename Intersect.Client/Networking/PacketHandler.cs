@@ -268,6 +268,11 @@ namespace Intersect.Client.Networking
             }
         }
 
+        public void HandlePacket(IPacketSender packetSender, PlayerRespawnPacket packet)
+        {
+            Interface.Interface.GameUi?.GameMenu?.HideDeathWindow();
+        }
+
         //NpcEntityPacket
         public void HandlePacket(IPacketSender packetSender, NpcEntityPacket packet)
         {
@@ -1077,6 +1082,18 @@ namespace Intersect.Client.Networking
             if (en == null)
             {
                 return;
+            }
+
+            // if (type == EntityTypes.GlobalEntity)
+            // {
+            //     // Create corpse
+            //     var corpseId = Guid.NewGuid();
+            //     Globals.Entities.Add(corpseId, new Corpse(corpseId, en));
+            // }
+
+            if (en.Id == Globals.Me.Id)
+            {
+                Interface.Interface.GameUi?.GameMenu?.ShowDeathWindow();
             }
 
             en.ClearAnimations(null);

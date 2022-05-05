@@ -520,6 +520,16 @@ namespace Intersect.Client.Entities
                 {
                     LatestMap = Maps.MapInstance.Get(MapId);
                 }
+                
+                if (this is Corpse corpse) {
+                    if (corpse.TickCount + Corpse.TIME_TO_RESPAWN < Timing.Global.Milliseconds || AnimatedTextures[SpriteAnimation] == null)
+                    {
+                        if (Globals.Entities?.ContainsKey(this.Id) ?? false)
+                        {
+                            Globals.Entities[this.Id]?.Dispose();
+                        }
+                    }
+                }
 
                 if (LatestMap == null || !LatestMap.InView())
                 {
@@ -1398,6 +1408,11 @@ namespace Intersect.Client.Entities
                 name = Strings.GameWindow.EntityNameAndLevel.ToString(Name, Level);
             }
 
+            if (this.IsDead() && this is Player)
+            {
+                name = string.Format(Strings.EntityBox.dead, name);
+            }
+
             var textSize = Graphics.Renderer.MeasureText(name, Graphics.EntityNameFont, 1);
 
             var x = (int)Math.Ceiling(Origin.X);
@@ -2102,7 +2117,11 @@ namespace Intersect.Client.Entities
                 return -2;
             }
         }
-
+        
+        public bool IsDead()
+        {
+            return this.Vital[(int)Vitals.Health] <= 0;
+        }
         ~Entity()
         {
             Dispose();

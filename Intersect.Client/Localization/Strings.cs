@@ -706,6 +706,8 @@ namespace Intersect.Client.Localization
 
             public static LocalizedString vital1val = @"{00} / {01}";
 
+            public static LocalizedString dead = @"{0} (Dead)";
+
         }
 
         public struct Errors
@@ -1829,6 +1831,7 @@ namespace Intersect.Client.Localization
                 {2, @"Warp to Target"},
                 {3, @"Dash"},
                 {4, @"Special"},
+                {5, @"Ressurect"},
             };
 
             [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
@@ -2137,6 +2140,14 @@ namespace Intersect.Client.Localization
             public static LocalizedString EntityNameAndLevel = @"{00} [Lv. {01}]";
         }
 
+        public struct Death
+        {
+            public static LocalizedString DeathWindowTitle = "Dead";
+
+            public static LocalizedString DeathMsg = "You died!";
+
+            public static LocalizedString RespawnButton = "Respawn";
+        }
     }
 
 }

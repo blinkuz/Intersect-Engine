@@ -431,6 +431,11 @@ namespace Intersect.Client.Networking
             }
         }
 
+        public static void SendRespawn()
+        {
+            Network.SendPacket(new RespawnPacket());
+        }
+
     }
 
 }

@@ -109,6 +109,10 @@ namespace Intersect.Editor.Forms.Editors
             this.lblMag = new System.Windows.Forms.Label();
             this.lblStr = new System.Windows.Forms.Label();
             this.grpHotDot = new DarkUI.Controls.DarkGroupBox();
+            this.nudHotDotProbability = new DarkUI.Controls.DarkNumericUpDown();
+            this.lblHotDotProbability = new System.Windows.Forms.Label();
+            this.nudHotDotAmount = new DarkUI.Controls.DarkNumericUpDown();
+            this.lblHotDotAmount = new System.Windows.Forms.Label();
             this.lblTickAnimation = new System.Windows.Forms.Label();
             this.cmbTickAnimation = new DarkUI.Controls.DarkComboBox();
             this.nudTick = new DarkUI.Controls.DarkNumericUpDown();
@@ -202,6 +206,8 @@ namespace Intersect.Editor.Forms.Editors
             ((System.ComponentModel.ISupportInitialize)(this.nudMag)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.nudStr)).BeginInit();
             this.grpHotDot.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.nudHotDotProbability)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.nudHotDotAmount)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.nudTick)).BeginInit();
             this.grpEffect.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.picSprite)).BeginInit();
@@ -1400,6 +1406,10 @@ namespace Intersect.Editor.Forms.Editors
             // 
             this.grpHotDot.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(48)))));
             this.grpHotDot.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(90)))), ((int)(((byte)(90)))), ((int)(((byte)(90)))));
+            this.grpHotDot.Controls.Add(this.nudHotDotProbability);
+            this.grpHotDot.Controls.Add(this.lblHotDotProbability);
+            this.grpHotDot.Controls.Add(this.nudHotDotAmount);
+            this.grpHotDot.Controls.Add(this.lblHotDotAmount);
             this.grpHotDot.Controls.Add(this.lblTickAnimation);
             this.grpHotDot.Controls.Add(this.cmbTickAnimation);
             this.grpHotDot.Controls.Add(this.nudTick);
@@ -1413,10 +1423,68 @@ namespace Intersect.Editor.Forms.Editors
             this.grpHotDot.TabStop = false;
             this.grpHotDot.Text = "Heal/Damage Over Time";
             // 
+            // nudHotDotProbability
+            // 
+            this.nudHotDotProbability.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(69)))), ((int)(((byte)(73)))), ((int)(((byte)(74)))));
+            this.nudHotDotProbability.ForeColor = System.Drawing.Color.Gainsboro;
+            this.nudHotDotProbability.Location = new System.Drawing.Point(99, 77);
+            this.nudHotDotProbability.Maximum = new decimal(new int[] {
+            60000,
+            0,
+            0,
+            0});
+            this.nudHotDotProbability.Name = "nudHotDotProbability";
+            this.nudHotDotProbability.Size = new System.Drawing.Size(80, 20);
+            this.nudHotDotProbability.TabIndex = 60;
+            this.nudHotDotProbability.Value = new decimal(new int[] {
+            0,
+            0,
+            0,
+            0});
+            this.nudHotDotProbability.ValueChanged += new System.EventHandler(this.nudHotDotProbability_ValueChanged);
+            // 
+            // lblHotDotProbability
+            // 
+            this.lblHotDotProbability.AutoSize = true;
+            this.lblHotDotProbability.Location = new System.Drawing.Point(99, 61);
+            this.lblHotDotProbability.Name = "lblHotDotProbability";
+            this.lblHotDotProbability.Size = new System.Drawing.Size(69, 13);
+            this.lblHotDotProbability.TabIndex = 59;
+            this.lblHotDotProbability.Text = "Probability %:";
+            // 
+            // nudHotDotAmount
+            // 
+            this.nudHotDotAmount.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(69)))), ((int)(((byte)(73)))), ((int)(((byte)(74)))));
+            this.nudHotDotAmount.ForeColor = System.Drawing.Color.Gainsboro;
+            this.nudHotDotAmount.Location = new System.Drawing.Point(6, 77);
+            this.nudHotDotAmount.Maximum = new decimal(new int[] {
+            60000,
+            0,
+            0,
+            0});
+            this.nudHotDotAmount.Name = "nudHotDotAmount";
+            this.nudHotDotAmount.Size = new System.Drawing.Size(80, 20);
+            this.nudHotDotAmount.TabIndex = 58;
+            this.nudHotDotAmount.Value = new decimal(new int[] {
+            0,
+            0,
+            0,
+            0});
+            this.nudHotDotAmount.ValueChanged += new System.EventHandler(this.nudHotDotAmount_ValueChanged);
+            // 
+            // lblHotDotAmount
+            // 
+            this.lblHotDotAmount.AutoSize = true;
+            this.lblHotDotAmount.Location = new System.Drawing.Point(6, 61);
+            this.lblHotDotAmount.Name = "lblHotDotAmount";
+            this.lblHotDotAmount.Size = new System.Drawing.Size(57, 13);
+            this.lblHotDotAmount.TabIndex = 57;
+            this.lblHotDotAmount.Text = "Amount %:";
+            // 
             // lblTickAnimation
             // 
             this.lblTickAnimation.AutoSize = true;
-            this.lblTickAnimation.Location = new System.Drawing.Point(6, 89);
+            this.lblTickAnimation.Location = new System.Drawing.Point(6, 106);
             this.lblTickAnimation.Name = "lblTickAnimation";
             this.lblTickAnimation.Size = new System.Drawing.Size(80, 13);
             this.lblTickAnimation.TabIndex = 56;
@@ -1435,7 +1503,7 @@ namespace Intersect.Editor.Forms.Editors
             this.cmbTickAnimation.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.cmbTickAnimation.ForeColor = System.Drawing.Color.Gainsboro;
             this.cmbTickAnimation.FormattingEnabled = true;
-            this.cmbTickAnimation.Location = new System.Drawing.Point(86, 86);
+            this.cmbTickAnimation.Location = new System.Drawing.Point(86, 103);
             this.cmbTickAnimation.Name = "cmbTickAnimation";
             this.cmbTickAnimation.Size = new System.Drawing.Size(96, 21);
             this.cmbTickAnimation.TabIndex = 54;
@@ -2408,6 +2476,8 @@ namespace Intersect.Editor.Forms.Editors
             ((System.ComponentModel.ISupportInitialize)(this.nudStr)).EndInit();
             this.grpHotDot.ResumeLayout(false);
             this.grpHotDot.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.nudHotDotProbability)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.nudHotDotAmount)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.nudTick)).EndInit();
             this.grpEffect.ResumeLayout(false);
             this.grpEffect.PerformLayout();
@@ -2585,5 +2655,9 @@ namespace Intersect.Editor.Forms.Editors
         private System.Windows.Forms.Label lblTickAnimation;
         private DarkComboBox cmbTickAnimation;
         private DarkCheckBox chkFreezeMovement;
+        private DarkNumericUpDown nudHotDotAmount;
+        private System.Windows.Forms.Label lblHotDotAmount;
+        private DarkNumericUpDown nudHotDotProbability;
+        private System.Windows.Forms.Label lblHotDotProbability;
     }
 }

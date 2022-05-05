@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using Intersect.Enums;
@@ -234,6 +234,10 @@ namespace Intersect.GameObjects
         public bool HoTDoT { get; set; }
 
         public int HotDotInterval { get; set; }
+        
+        public int HotDotAmount { get; set; }
+
+        public int HotDotProbability { get; set; }
 
         public int Duration { get; set; }
 

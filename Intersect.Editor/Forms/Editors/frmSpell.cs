@@ -306,6 +306,8 @@ namespace Intersect.Editor.Forms.Editors
                 nudMpCost.Value = mEditorItem.VitalCost[(int) Vitals.Mana];
 
                 chkFreezeMovement.Checked = mEditorItem.FreezeMovement;
+                nudHotDotAmount.Value = mEditorItem.Combat.HotDotAmount;
+                nudHotDotProbability.Value = mEditorItem.Combat.HotDotProbability;
 
                 txtCannotCast.Text = mEditorItem.CannotCastMessage;
 
@@ -1091,6 +1093,16 @@ namespace Intersect.Editor.Forms.Editors
         private void chkFreezeMovement_CheckedChanged(object sender, EventArgs e)
         {
             mEditorItem.FreezeMovement = chkFreezeMovement.Checked;
+        }
+
+        private void nudHotDotAmount_ValueChanged(object sender, EventArgs e)
+        {
+            mEditorItem.Combat.HotDotAmount = (int)nudHotDotAmount.Value;
+        }
+
+        private void nudHotDotProbability_ValueChanged(object sender, EventArgs e)
+        {
+            mEditorItem.Combat.HotDotProbability = (int)nudHotDotProbability.Value;
         }
     }
 

@@ -110,8 +110,9 @@ namespace Intersect.Server.Entities.Combat
             }
             
 
-            var damageHealth = SpellBase.Combat.VitalDiff[(int)Vitals.Health];
-            var damageMana = SpellBase.Combat.VitalDiff[(int)Vitals.Mana];
+            var damageHealth = SpellBase.Combat.VitalDiff[(int)Vitals.Health] * SpellBase.Combat.HotDotAmount / 100;
+            var damageMana = SpellBase.Combat.VitalDiff[(int)Vitals.Mana] * SpellBase.Combat.HotDotAmount / 100;
+
 
             Attacker?.Attack(
                 Target, damageHealth, damageMana,

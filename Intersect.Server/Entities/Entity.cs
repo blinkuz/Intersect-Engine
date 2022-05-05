@@ -1731,7 +1731,10 @@ namespace Intersect.Server.Entities
                     }
                 }
 
-                new DoT(this, spellBase.Id, target);
+                if (Randomization.Next(1, 101) < spellBase.Combat.HotDotProbability)
+                {
+                    new DoT(this, spellBase.Id, target);
+                }
             }
         }
 

@@ -486,6 +486,9 @@ namespace Intersect.Server.Localization
             public readonly LocalizedString syntaxerror =
                 @"Syntax Error: Expected parameter not found. Type {00} {01} for usage information.";
 
+            [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+            public readonly LocalizedString changeday = @"Game day is now: {00}";
+
         }
 
         public sealed class CraftingNamespace : LocaleNamespace

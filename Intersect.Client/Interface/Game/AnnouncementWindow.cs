@@ -23,6 +23,8 @@ namespace Intersect.Client.Interface.Game
         private string mLabelText;
 
         private long mDisplayUntil = 0;
+        
+        private Color mTextColor;
 
         /// <summary>
         /// Indicates whether the control is hidden.
@@ -55,6 +57,7 @@ namespace Intersect.Client.Interface.Game
             if (!mPicture.IsHidden)
             {
                 mLabel.Text = mLabelText;
+                mLabel.TextColor = mTextColor;
 
                 // Are we still supposed to be visible?
                 if (Timing.Global.Milliseconds > mDisplayUntil)
@@ -69,10 +72,11 @@ namespace Intersect.Client.Interface.Game
         /// </summary>
         /// <param name="announcementText">The text to display.</param>
         /// <param name="displayTime">The time for which to display the announcement.</param>
-        public void ShowAnnouncement(string announcementText, long displayTime)
+        public void ShowAnnouncement(string announcementText, long displayTime, Color textColor)
         {
             mLabelText = announcementText;
             mDisplayUntil = Timing.Global.Milliseconds + displayTime;
+            mTextColor = textColor;
             Show();
         }
 

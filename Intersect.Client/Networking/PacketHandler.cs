@@ -516,7 +516,7 @@ namespace Intersect.Client.Networking
         //AnnouncementPacket
         public void HandlePacket(IPacketSender packetSender, AnnouncementPacket packet)
         {
-            Interface.Interface.GameUi.AnnouncementWindow.ShowAnnouncement(packet.Message, packet.Duration);   
+            Interface.Interface.GameUi.AnnouncementWindow.ShowAnnouncement(packet.Message, packet.Duration, Color.White);   
         }
 
         //ActionMsgPackets

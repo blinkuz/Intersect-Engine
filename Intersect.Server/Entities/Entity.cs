@@ -1436,6 +1436,23 @@ namespace Intersect.Server.Entities
         {
             return this == otherEntity;
         }
+        
+        private bool CheckSafeZone(Entity target)
+        {
+            var attribute = MapController.Get(MapId).Attributes[X, Y];
+            var attributeTarget = MapController.Get(MapId).Attributes[target.X, target.Y];
+            
+            if (attribute == null && attributeTarget == null)
+            {
+                return false;
+            }
+            if ((attribute != null && attribute.Type == MapAttributes.SafeZone) || (attributeTarget != null && attributeTarget.Type == MapAttributes.SafeZone) )
+            {
+                return true;
+            }
+
+            return false;
+        }
 
         //Attacking with projectile
         public virtual void TryAttack(
@@ -1447,6 +1464,11 @@ namespace Intersect.Server.Entities
         )
         {
             if (target is Resource && parentSpell != null)
+            {
+                return;
+            }
+            
+            if (CheckSafeZone(target))
             {
                 return;
             }
@@ -1552,6 +1574,11 @@ namespace Intersect.Server.Entities
             }
 
             if (spellBase == null)
+            {
+                return;
+            }
+            
+            if (CheckSafeZone(target))
             {
                 return;
             }
@@ -1772,6 +1799,11 @@ namespace Intersect.Server.Entities
         )
         {
             if (AttackTimer > Timing.Global.Milliseconds)
+            {
+                return;
+            }
+            
+            if (CheckSafeZone(target))
             {
                 return;
             }

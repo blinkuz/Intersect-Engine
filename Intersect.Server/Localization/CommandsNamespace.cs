@@ -258,6 +258,12 @@ namespace Intersect.Server.Localization
                 Help = @"unmutes a player allowing them to talk"
             };
 
+            [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+            public readonly LocaleCommand ChangeDay = new LocaleCommand
+            {
+                Name = @"changeday", Description = @"Sum 1 to the actual day", Help = @"sum 1 to the actual day"
+            };
+
             public sealed class ArgumentsNamespace : LocaleNamespace
             {
 

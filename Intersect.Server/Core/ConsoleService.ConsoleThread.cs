@@ -54,6 +54,7 @@ namespace Intersect.Server.Core
                 Parser.Register<SetVariableCommand>();
                 Parser.Register<UnbanCommand>();
                 Parser.Register<UnmuteCommand>();
+                Parser.Register<ChangeDayCommand>();
             }
 
             public CommandParser Parser { get; }

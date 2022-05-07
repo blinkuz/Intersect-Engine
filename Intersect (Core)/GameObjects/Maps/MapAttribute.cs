@@ -39,6 +39,8 @@ namespace Intersect.GameObjects.Maps
                     return new MapSlideAttribute();
                 case MapAttributes.Critter:
                     return new MapCritterAttribute();
+                case MapAttributes.SafeZone:
+                    return new MapSafeZoneAttribute();
             }
 
             return null;
@@ -272,6 +274,12 @@ namespace Intersect.GameObjects.Maps
 
             return att;
         }
+    }
+    
+    public class MapSafeZoneAttribute : MapAttribute
+    {
+        public override MapAttributes Type { get; } = MapAttributes.SafeZone;
+
     }
 
 }

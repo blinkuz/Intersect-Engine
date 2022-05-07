@@ -530,6 +530,10 @@ namespace Intersect.Client.Localization
             public static LocalizedString warningexitdesktop =
                 @"You are about to exit while in combat! Your character will remain in-game until combat has ended! Are you sure you want to quit now?";
 
+            public static LocalizedString safezoenterneannounce = "Has entrado a una zona segura!";
+
+            public static LocalizedString safezoexitneannounce = "Has salido de la zona segura!";
+
         }
 
         public struct Controls

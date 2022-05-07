@@ -145,6 +145,7 @@ namespace Intersect.Editor.Forms.DockingElements
             this.pnlEvents = new System.Windows.Forms.Panel();
             this.pnlLights = new System.Windows.Forms.Panel();
             this.lightEditor = new Intersect.Editor.Forms.Controls.LightEditorCtrl();
+            this.rbSafeZone = new DarkUI.Controls.DarkRadioButton();
             this.grpResource.SuspendLayout();
             this.grpZResource.SuspendLayout();
             this.grpItem.SuspendLayout();
@@ -1272,6 +1273,7 @@ namespace Intersect.Editor.Forms.DockingElements
             // 
             // pnlAttributes
             // 
+            this.pnlAttributes.Controls.Add(this.rbSafeZone);
             this.pnlAttributes.Controls.Add(this.grpWarp);
             this.pnlAttributes.Controls.Add(this.grpCritter);
             this.pnlAttributes.Controls.Add(this.rbCritter);
@@ -1709,6 +1711,17 @@ namespace Intersect.Editor.Forms.DockingElements
             this.lightEditor.Visible = false;
             this.lightEditor.Load += new System.EventHandler(this.lightEditor_Load);
             // 
+            // rbSafeZone
+            // 
+            this.rbSafeZone.AutoSize = true;
+            this.rbSafeZone.ForeColor = System.Drawing.Color.Gainsboro;
+            this.rbSafeZone.Location = new System.Drawing.Point(115, 96);
+            this.rbSafeZone.Name = "rbSafeZone";
+            this.rbSafeZone.Size = new System.Drawing.Size(72, 17);
+            this.rbSafeZone.TabIndex = 39;
+            this.rbSafeZone.Text = "SafeZone";
+            this.rbSafeZone.CheckedChanged += new System.EventHandler(this.rbSafeZone_CheckedChanged);
+            // 
             // FrmMapLayers
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -1901,5 +1914,6 @@ namespace Intersect.Editor.Forms.DockingElements
         private Label lblInstance;
         private DarkComboBox cmbInstanceType;
         private CheckBox chkChangeInstance;
+        private DarkRadioButton rbSafeZone;
     }
 }

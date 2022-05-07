@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -693,6 +693,8 @@ namespace Intersect.Editor.Localization
             public static LocalizedString animation = @"Animation:";
 
             public static LocalizedString blocked = @"Blocked";
+
+            public static LocalizedString safezone = @"SafeZone";
 
             public static LocalizedString critter = @"Critter";
 

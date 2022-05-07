@@ -119,6 +119,8 @@ namespace Intersect.Client.Entities
         /// Contains a record of all members of this player's guild.
         /// </summary>
         public GuildMember[] GuildMembers = new GuildMember[0];
+        
+        private bool isInSafeZone = false;
 
         public Player(Guid id, PlayerEntityPacket packet) : base(id, packet, EntityTypes.Player)
         {
@@ -2121,6 +2123,31 @@ namespace Intersect.Client.Entities
                         }
                     }
                 }
+            }
+        }
+        
+        private void CheckSafeZone()
+        {
+            var attribute = Maps.MapInstance.Get(MapId).Attributes[X, Y];
+            if (attribute != null && attribute.Type == MapAttributes.SafeZone)
+            {
+                if (isInSafeZone)
+                {
+                    return;
+                }
+
+                isInSafeZone = true;
+                Interface.Interface.GameUi.AnnouncementWindow.ShowAnnouncement(Strings.Combat.safezoenterneannounce, 2000, Color.Green);
+            }
+            else
+            {
+                if (!isInSafeZone)
+                {
+                    return;
+                }
+
+                isInSafeZone = false;
+                Interface.Interface.GameUi.AnnouncementWindow.ShowAnnouncement(Strings.Combat.safezoexitneannounce, 2000, Color.Red);
             }
         }
 

@@ -1,9 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using System.Collections.Generic;
 using System.Runtime.Serialization;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Intersect.Config
 {
@@ -21,7 +17,12 @@ namespace Intersect.Config
             "Side Quests",
             "Completed Quests",
         };
-
+        
+        public string GuidActualDay
+        {
+            get;
+            set;
+        } = "7e0fb019-8a03-4245-8481-3fb4af76dc60";
 
         [OnDeserializing]
         internal void OnDeserializingMethod(StreamingContext context)

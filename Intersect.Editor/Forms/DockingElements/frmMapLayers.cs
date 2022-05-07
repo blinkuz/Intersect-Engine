@@ -610,6 +610,10 @@ namespace Intersect.Editor.Forms.DockingElements
             {
                 return (int) MapAttributes.Critter;
             }
+            else if (rbSafeZone.Checked == true)
+            {
+                return (int)MapAttributes.SafeZone;
+            }
 
             return (int) MapAttributes.Walkable;
         }
@@ -673,6 +677,11 @@ namespace Intersect.Editor.Forms.DockingElements
                     return MapAttributes.Critter;
                 }
 
+                if (rbSafeZone.Checked)
+                {
+                    return MapAttributes.SafeZone;
+                }
+
                 return (MapAttributes) byte.MaxValue;
             }
         }
@@ -688,6 +697,7 @@ namespace Intersect.Editor.Forms.DockingElements
                 case MapAttributes.Blocked:
                 case MapAttributes.GrappleStone:
                 case MapAttributes.NpcAvoid:
+                case MapAttributes.SafeZone:
                     break;
 
                 case MapAttributes.Item:
@@ -1045,6 +1055,7 @@ namespace Intersect.Editor.Forms.DockingElements
             rbGrappleStone.Text = Strings.Attributes.grapple;
             rbSlide.Text = Strings.Attributes.slide;
             rbCritter.Text = Strings.Attributes.critter;
+            rbSafeZone.Text = Strings.Attributes.safezone;
 
             //Map Animation Groupbox
             grpAnimation.Text = Strings.Attributes.mapanimation;
@@ -1351,6 +1362,11 @@ namespace Intersect.Editor.Forms.DockingElements
         private void chkChangeInstance_CheckedChanged(object sender, EventArgs e)
         {
             grpInstanceSettings.Visible = chkChangeInstance.Checked;
+        }
+
+        private void rbSafeZone_CheckedChanged(object sender, EventArgs e)
+        {
+            HideAttributeMenus();
         }
     }
 

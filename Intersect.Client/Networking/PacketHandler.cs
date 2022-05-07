@@ -642,6 +642,7 @@ namespace Intersect.Client.Networking
             var y = packet.Y;
             var dir = packet.Direction;
             var correction = packet.Correction;
+            en.Running = packet.Running;
             if ((en.MapId != map || en.X != x || en.Y != y) &&
                 (en != Globals.Me || en == Globals.Me && correction) &&
                 en.Dashing == null)

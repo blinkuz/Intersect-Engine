@@ -926,7 +926,7 @@ namespace Intersect.Server.Entities
             //Reset();
             //Respawn();
             PacketSender.SendInventory(this);
-            this.DeadSeconds = 10;
+            this.DeadSeconds = Options.Player.SecondsForRespawn;
         }
 
         public override void ProcessRegen()

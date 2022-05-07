@@ -11,12 +11,13 @@ namespace Intersect.Network.Packets.Client
         {
         }
 
-        public MovePacket(Guid mapId, byte x, byte y, byte dir)
+        public MovePacket(Guid mapId, byte x, byte y, byte dir, bool running)
         {
             MapId = mapId;
             X = x;
             Y = y;
             Dir = dir;
+            Running = running;
         }
 
         [Key(3)]
@@ -30,6 +31,9 @@ namespace Intersect.Network.Packets.Client
 
         [Key(6)]
         public byte Dir { get; set; }
+        
+        [Key(7)]
+        public bool Running { get; set; }
 
     }
 

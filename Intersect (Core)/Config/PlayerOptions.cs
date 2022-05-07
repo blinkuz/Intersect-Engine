@@ -84,6 +84,12 @@
         /// Distance (in tiles) between players in which a trade offer can be sent and accepted.
         /// </summary>
         public int TradeRange { get; set; } = 6;
+        
+        public float RunningSpeed = 0.5f;
+
+        public int SecondsForRespawn = 10;
+        
+        public int RunningInterval = 2000;
 
     }
 

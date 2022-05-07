@@ -693,6 +693,7 @@ namespace Intersect.Server.Networking
                 var canMove = player.CanMove(packet.Dir);
                 if ((canMove == -1 || canMove == -4) && client.Entity.MoveRoute == null)
                 {
+                    player.Running = packet.Running;
                     player.Move(packet.Dir, player, false);
                     var utcDeltaMs = (Timing.Global.TicksUtc - packet.UTC) / TimeSpan.TicksPerMillisecond;
                     var latencyAdjustmentMs = -(client.Ping + Math.Max(0, utcDeltaMs));

@@ -8,6 +8,8 @@
         Shoot,
         Cast,
         Weapon,
+        Run,
+        Attack2,
         Death
     }
 }

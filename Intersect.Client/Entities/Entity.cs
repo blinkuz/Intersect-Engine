@@ -190,7 +190,11 @@ namespace Intersect.Client.Entities
         public byte Y { get; set; }
 
         public byte Z { get; set; }
-
+        
+        public bool Running = false;
+        
+        private long mLastWalkTime = -1;
+        
         public Entity(Guid id, EntityPacket packet, EntityTypes entityType)
         {
             Id = id;
@@ -292,6 +296,8 @@ namespace Intersect.Client.Entities
                     case SpriteAnimations.Idle:
                         return Options.Instance.Sprites.IdleFrames;
                     case SpriteAnimations.Attack:
+                        return Options.Instance.Sprites.AttackFrames;
+                    case SpriteAnimations.Attack2:
                         return Options.Instance.Sprites.AttackFrames;
                     case SpriteAnimations.Shoot:
                         return Options.Instance.Sprites.ShootFrames;
@@ -495,6 +501,10 @@ namespace Intersect.Client.Entities
         public virtual float GetMovementTime()
         {
             var time = 1000f / (float)(1 + Math.Log(Stat[(int)Stats.Speed]));
+            if (Running)
+            {
+                time *= Options.Player.RunningSpeed;
+            }
             if (IsBlocking)
             {
                 time += time * (float)Options.BlockingSlow;
@@ -836,10 +846,27 @@ namespace Intersect.Client.Entities
             }
 
             mLastUpdate = Timing.Global.Milliseconds;
+            
+            if (IsMoving)
+            {
+                if (Running == false && mLastWalkTime == -1)
+                {
+                    mLastWalkTime = Timing.Global.Milliseconds;
+                }
+                SetRunning();
+            }
 
             UpdateSpriteAnimation();
 
             return true;
+        }
+        
+        private void SetRunning()
+        {
+            if ( mLastWalkTime +  Options.Player.RunningInterval < Timing.Global.Milliseconds && Running == false)
+            {
+                Running = true;
+            }
         }
 
         public virtual int CalculateAttackTime()
@@ -1773,28 +1800,33 @@ namespace Intersect.Client.Entities
 
         public void UpdateSpriteAnimation()
         {
-            var oldAnim = SpriteAnimation;
+            bool attacking = AttackTimer > Timing.Global.Ticks / TimeSpan.TicksPerMillisecond;
 
             //Exit if textures haven't been loaded yet
-            if (AnimatedTextures.Count == 0)
+            if (AnimatedTextures.Count == 0 || SpriteAnimation == SpriteAnimations.Death)
             {
                 return;
             }
 
-            SpriteAnimation = AnimatedTextures[SpriteAnimations.Idle] != null && LastActionTime + Options.Instance.Sprites.TimeBeforeIdle < Timing.Global.Milliseconds ? SpriteAnimations.Idle : SpriteAnimations.Normal;
-            if (IsMoving)
+            if (AnimatedTextures[SpriteAnimations.Idle] != null && LastActionTime + Options.Instance.Sprites.TimeBeforeIdle < Timing.Global.Milliseconds)
             {
-                SpriteAnimation = SpriteAnimations.Normal;
-                LastActionTime = Timing.Global.Milliseconds;
+                SpriteAnimation = SpriteAnimations.Idle;
+                Running = false;
+                mLastWalkTime = -1;
             }
-            else if (AttackTimer > Timing.Global.Ticks / TimeSpan.TicksPerMillisecond) //Attacking
+            if (IsMoving && !attacking)
+            {
+                SpriteAnimation = Running ? SpriteAnimations.Run : SpriteAnimations.Normal;
+                LastActionTime =  Timing.Global.Milliseconds;
+            }
+            else if (attacking) //Attacking
             {
                 var timeIn = CalculateAttackTime() - (AttackTimer - Timing.Global.Ticks / TimeSpan.TicksPerMillisecond);
                 LastActionTime = Timing.Global.Milliseconds;
 
-                if (AnimatedTextures[SpriteAnimations.Attack] != null)
+                if (AnimatedTextures[SpriteAnimations.Attack] != null && AnimatedTextures[SpriteAnimations.Attack2] != null)
                 {
-                    SpriteAnimation = SpriteAnimations.Attack;
+                    SpriteAnimation = SpriteAnimations.Attack2;
                 }
 
                 if (Options.WeaponIndex > -1 && Options.WeaponIndex < Equipment.Length)
@@ -1865,7 +1897,7 @@ namespace Intersect.Client.Entities
             {
                 ResetSpriteFrame();
             }
-            else if (SpriteAnimation == SpriteAnimations.Idle)
+            else if (SpriteAnimation == SpriteAnimations.Idle || SpriteAnimation == SpriteAnimations.Run)
             {
                 if (SpriteFrameTimer + Options.Instance.Sprites.IdleFrameDuration < Timing.Global.Milliseconds)
                 {

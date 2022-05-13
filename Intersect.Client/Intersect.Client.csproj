@@ -3,6 +3,8 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net462</TargetFramework>
+    <ApplicationIcon>Icon.ico</ApplicationIcon>
+    <PackageIcon>Shinobi Tamashii Online.png</PackageIcon>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -10,7 +12,7 @@
     <Description>Game Client - Part of the Intersect 2D Game Creation Suite</Description>
     <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
     <RootNamespace>Intersect.Client</RootNamespace>
-    <AssemblyName>Intersect Client</AssemblyName>
+    <AssemblyName>Shinobi Tamashii Online</AssemblyName>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>
@@ -59,6 +61,7 @@
     <None Include="FodyWeavers.xml">
       <SubType>Designer</SubType>
     </None>
+    <None Update="..\assets\intersect-logo-qu.png" />
   </ItemGroup>
 
   <ItemGroup Label="Package Embedded Resources">

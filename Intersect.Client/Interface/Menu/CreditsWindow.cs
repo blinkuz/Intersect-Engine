@@ -5,6 +5,8 @@ using Intersect.Client.Framework.Gwen.Control.EventArguments;
 using Intersect.Client.Localization;
 using Intersect.Configuration;
 using Newtonsoft.Json;
+using UltralightNet;
+using UltralightNet.AppCore;
 
 namespace Intersect.Client.Interface.Menu;
 
@@ -40,6 +42,21 @@ public partial class CreditsWindow : ImagePanel, IMainMenuWindow
     {
         Hide();
         _mainMenu.Show();
+        Task.Run(() =>
+        {  
+            ULPlatform.FileSystem = ULPlatform.DefaultFileSystem;
+            var app = ULApp.Create(new(), new());
+            var window = app.MainMonitor.CreateWindow(900, 600);
+            window.Title = "Intersect + Ultralight";
+
+            var overlay = window.CreateOverlay(window.ScreenWidth, window.ScreenHeight);
+            overlay.View.URL = "https://google.com.do/";
+
+            window.OnResize += (width, height) => overlay.Resize(width, height);
+        
+            overlay.View.OnFailLoading += (frame_id, is_main_frame, url, description, error_domain, error_code) => throw new Exception("Failed loading");
+            app.Run();
+        });
     }
 
     public override void Show()

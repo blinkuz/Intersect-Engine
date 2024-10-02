@@ -1,0 +1,19 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <RootNamespace>DiscordRPC_Plugin</RootNamespace>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+      <IntersectPluginType>Client</IntersectPluginType>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="AscensionGameDev.Intersect.Client.Framework" Version="0.7.0.127-beta" />
+      <PackageReference Include="DiscordRichPresence" Version="1.2.1.24" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Intersect.Client.Framework\Intersect.Client.Framework.csproj" />
+    </ItemGroup>
+
+</Project>

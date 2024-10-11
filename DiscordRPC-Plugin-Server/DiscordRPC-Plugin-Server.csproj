@@ -1,0 +1,17 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <RootNamespace>DiscordRPC_Plugin_Server</RootNamespace>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="AscensionGameDev.Intersect.Server.Framework" Version="0.7.0.127-beta" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Intersect.Server.Framework\Intersect.Server.Framework.csproj" />
+    </ItemGroup>
+
+</Project>

@@ -1,4 +1,7 @@
-﻿using DiscordRPC_Plugin.Loggin;
+﻿using DiscordRPC_Plugin_Server.Networking.Packets.Client;
+using DiscordRPC_Plugin_Server.Networking.Packets.Server;
+using DiscordRPC_Plugin.Loggin;
+using DiscordRPC_Plugin.Networking.Handlers;
 using Intersect.Client.General;
 using Intersect.Client.Plugins;
 using Intersect.Client.Plugins.Interfaces;
@@ -21,6 +24,26 @@ public class PluginEntry: ClientPluginEntry
         Logger.Write(LogLevel.Info, String.Format("Author  : {0}", context.Manifest.Authors));
         Logger.Write(LogLevel.Info, String.Format("Homepage: {0}", context.Manifest.Homepage));
         Logger.Write(LogLevel.Info, "---");
+        
+        Logger.Write(LogLevel.Info, "Registering packets...");
+        if (!context.Packet.TryRegisterPacketType<GetRichPresenceConfig>())
+        {
+            Logger.Write(LogLevel.Warning, $"Failed to register {nameof(GetRichPresenceConfig)} packet.");
+            Environment.Exit(-3);
+        }
+        
+        if (!context.Packet.TryRegisterPacketType<RichPresenceConfig>())
+        {
+            Logger.Write(LogLevel.Warning, $"Failed to register {nameof(RichPresenceConfig)} packet.");
+            Environment.Exit(-3);
+        }
+        
+        Logger.Write(LogLevel.Info, "Registering packet handlers...");
+        if (!context.Packet.TryRegisterPacketHandler<RichPresencePacketHandler, RichPresenceConfig>(out _))
+        {
+            Logger.Write(LogLevel.Warning, $"Failed to register {nameof(RichPresenceConfig)} packet handler.");
+            Environment.Exit(-4);
+        }
     }
     
     public override void OnStart(IClientPluginContext context)

@@ -1,10 +1,12 @@
-﻿using DiscordRPC_Plugin_Server.Networking.Packets.Client;
-using DiscordRPC_Plugin_Server.Networking.Packets.Server;
-using DiscordRPC_Plugin.Loggin;
+﻿using Blinkuz.Plugins.Tools.Logging;
+using Blinkuz.Plugins.Tools.Networking.Packets.Client;
+using Blinkuz.Plugins.Tools.Networking.Packets.Server;
 using DiscordRPC_Plugin.Networking.Handlers;
+using DiscordRPC_Plugin.Networking.Hooks;
 using Intersect.Client.General;
 using Intersect.Client.Plugins;
 using Intersect.Client.Plugins.Interfaces;
+using Intersect.Network.Packets.Server;
 using Intersect.Plugins;
 using Microsoft;
 
@@ -12,10 +14,10 @@ namespace DiscordRPC_Plugin;
 
 public class PluginEntry: ClientPluginEntry
 {
-    private DiscordRichPresenceManager _discordManager;
     public override void OnBootstrap([ValidatedNotNull] IPluginBootstrapContext context)
     {
         Logger.Context = context;
+        Logger.WriteToConsole = true;
         Logger.Write(LogLevel.Info, "*======================================*");
         Logger.Write(LogLevel.Info, "*         DiscordRPC-Plugin            *");
         Logger.Write(LogLevel.Info, "*======================================*");
@@ -24,31 +26,36 @@ public class PluginEntry: ClientPluginEntry
         Logger.Write(LogLevel.Info, String.Format("Author  : {0}", context.Manifest.Authors));
         Logger.Write(LogLevel.Info, String.Format("Homepage: {0}", context.Manifest.Homepage));
         Logger.Write(LogLevel.Info, "---");
-        
+    
         Logger.Write(LogLevel.Info, "Registering packets...");
-        if (!context.Packet.TryRegisterPacketType<GetRichPresenceConfig>())
+        if (!context.Packet.TryRegisterPacketType<GetRichPresenceConfigPacket>())
         {
-            Logger.Write(LogLevel.Warning, $"Failed to register {nameof(GetRichPresenceConfig)} packet.");
+            Logger.Write(LogLevel.Warning, $"Failed to register {nameof(GetRichPresenceConfigPacket)} packet.");
             Environment.Exit(-3);
         }
-        
-        if (!context.Packet.TryRegisterPacketType<RichPresenceConfig>())
+    
+        if (!context.Packet.TryRegisterPacketType<RichPresenceConfigPacket>())
         {
-            Logger.Write(LogLevel.Warning, $"Failed to register {nameof(RichPresenceConfig)} packet.");
+            Logger.Write(LogLevel.Warning, $"Failed to register {nameof(RichPresenceConfigPacket)} packet.");
             Environment.Exit(-3);
         }
-        
+    
         Logger.Write(LogLevel.Info, "Registering packet handlers...");
-        if (!context.Packet.TryRegisterPacketHandler<RichPresencePacketHandler, RichPresenceConfig>(out _))
+        if (!context.Packet.TryRegisterPacketHandler<RichPresencePacketHandler, RichPresenceConfigPacket>(out _))
         {
-            Logger.Write(LogLevel.Warning, $"Failed to register {nameof(RichPresenceConfig)} packet handler.");
+            Logger.Write(LogLevel.Warning, $"Failed to register {nameof(RichPresenceConfigPacket)} packet handler.");
             Environment.Exit(-4);
+        }
+
+        if (!context.Packet.TryRegisterPacketPostHook<JoinGamePostHook, JoinGamePacket>(out _))
+        {
+            Logger.Write(LogLevel.Warning, $"Failed to register {nameof(JoinGamePacket)} packet post hook.");
+            Environment.Exit(-5);
         }
     }
     
     public override void OnStart(IClientPluginContext context)
     {
-        _discordManager = new DiscordRichPresenceManager("1079638956368482314");    
         Logger.Write(LogLevel.Info,"DiscordRPC-Plugin started");
         context.Lifecycle.GameUpdate += HandleGameUpdate;
     }
@@ -57,12 +64,12 @@ public class PluginEntry: ClientPluginEntry
     {
         if (gameUpdateArgs.State == GameStates.InGame)
         {
-            _discordManager.UpdatePresence(gameUpdateArgs.Player);
+            DiscordRichPresenceManager.Instance.UpdatePresence(gameUpdateArgs.Player);
         }
     }
 
     public override void OnStop(IClientPluginContext context)
     {
-        _discordManager.Dispose();
+        DiscordRichPresenceManager.Instance.Dispose();
     }
 }

@@ -1,27 +1,32 @@
-﻿using DiscordRPC_Plugin_Server.Networking.Packets.Server;
-using DiscordRPC_Plugin.Loggin;
+﻿using Blinkuz.Plugins.Tools.Logging;
+using Blinkuz.Plugins.Tools.Networking.Packets.Server;
 using Intersect.Network;
 
 namespace DiscordRPC_Plugin.Networking.Handlers;
 
-public class RichPresencePacketHandler: IPacketHandler<RichPresenceConfig>
+public class RichPresencePacketHandler : IPacketHandler<RichPresenceConfigPacket>
 {
-    public bool Handle(IPacketSender packetSender, RichPresenceConfig packet)
+    public bool Handle(IPacketSender packetSender, RichPresenceConfigPacket packet)
     {
-        if (default == packetSender)
-        {
-            throw new ArgumentNullException(nameof(packetSender));
-        }
+        Logger.Write(LogLevel.Info, "Received RichPresenceConfigPacket!");
 
-        if (default == packet)
-        {
-            throw new ArgumentNullException(nameof(packet));
-        }
-
-        Logger.Write(LogLevel.Info, "Received server packet!");
+        DiscordRichPresenceManager.Instance.Initialize(
+            packet.DiscordClientId,
+            packet.DetailsTemplate,
+            packet.StateTemplate,
+            packet.Button1Label,
+            packet.Button1Url,
+            packet.Button2Label,
+            packet.Button2Url,
+            packet.MaxPartySize,
+            packet.LargeImageKey,
+            packet.LargeImageText,
+            packet.SmallImageKey,
+            packet.SmallImageText
+        );
 
         return true;
     }
 
-    public bool Handle(IPacketSender packetSender, IPacket packet) => Handle(packetSender, packet as RichPresenceConfig);
+    public bool Handle(IPacketSender packetSender, IPacket packet) => Handle(packetSender, packet as RichPresenceConfigPacket);
 }

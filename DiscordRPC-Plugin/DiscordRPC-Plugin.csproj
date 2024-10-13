@@ -13,7 +13,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\DiscordRPC-Plugin-Server\DiscordRPC-Plugin-Server.csproj" />
+      <ProjectReference Include="..\Blinkuz.Plugins.Tools\Blinkuz.Plugins.Tools.csproj" />
       <ProjectReference Include="..\Intersect.Client.Framework\Intersect.Client.Framework.csproj" />
     </ItemGroup>
 

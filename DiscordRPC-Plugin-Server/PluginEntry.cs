@@ -1,7 +1,8 @@
-﻿using DiscordRPC_Plugin_Server.Configuration;
+﻿using Blinkuz.Plugins.Tools.Logging;
+using Blinkuz.Plugins.Tools.Networking.Packets.Client;
+using Blinkuz.Plugins.Tools.Networking.Packets.Server;
+using DiscordRPC_Plugin_Server.Configuration;
 using DiscordRPC_Plugin_Server.Networking.Handlers;
-using DiscordRPC_Plugin_Server.Networking.Packets.Client;
-using DiscordRPC_Plugin_Server.Networking.Packets.Server;
 using Intersect.Plugins;
 using Intersect.Server.Plugins;
 
@@ -12,30 +13,35 @@ public class PluginEntry: ServerPluginEntry
     public override void OnBootstrap(IPluginBootstrapContext context)
     {
         base.OnBootstrap(context);
-        
+        Logger.Context = context;
+        Logger.WriteToConsole = true;
+
         PluginSettings.Settings = context.GetTypedConfiguration<PluginSettings>();
-
-        context.Logging.Application.Info(
-            $@"{nameof(PluginEntry)}.{nameof(OnBootstrap)} writing to the application log!");
-
-        context.Logging.Plugin.Info(
-            $@"{nameof(PluginEntry)}.{nameof(OnBootstrap)} writing to the plugin log!");
-
-        context.Logging.Plugin.Info("Registering packets...");
-        if (!context.Packet.TryRegisterPacketType<GetRichPresenceConfig>())
+    
+        Logger.Write(LogLevel.Info, "*======================================*");
+        Logger.Write(LogLevel.Info, "*         DiscordRPC-Plugin-Server     *");
+        Logger.Write(LogLevel.Info, "*======================================*");
+        Logger.Write(LogLevel.Info, String.Format("Name    : {0}", context.Manifest.Name));
+        Logger.Write(LogLevel.Info, String.Format("Version : {0}", context.Manifest.Version));
+        Logger.Write(LogLevel.Info, String.Format("Author  : {0}", context.Manifest.Authors));
+        Logger.Write(LogLevel.Info, String.Format("Homepage: {0}", context.Manifest.Homepage));
+        Logger.Write(LogLevel.Info, "---");
+    
+        Logger.Write(LogLevel.Info, "Registering packets...");
+        if (!context.Packet.TryRegisterPacketType<GetRichPresenceConfigPacket>())
         {
-            context.Logging.Plugin.Error($"Failed to register {nameof(GetRichPresenceConfig)} packet.");
+            Logger.Write(LogLevel.Warning, $"Failed to register {nameof(GetRichPresenceConfigPacket)} packet.");
             Environment.Exit(-3);
         }
 
-        if (!context.Packet.TryRegisterPacketType<RichPresenceConfig>())
+        if (!context.Packet.TryRegisterPacketType<RichPresenceConfigPacket>())
         {
-            context.Logging.Plugin.Error($"Failed to register {nameof(RichPresenceConfig)} packet.");
+            Logger.Write(LogLevel.Warning, $"Failed to register {nameof(RichPresenceConfigPacket)} packet.");
             Environment.Exit(-3);
         }
 
         context.Logging.Plugin.Info("Registering packet handlers...");
-        if (!context.Packet.TryRegisterPacketHandler<GetRichPresenceConfigPacketHandler, GetRichPresenceConfig>(out _))
+        if (!context.Packet.TryRegisterPacketHandler<GetRichPresenceConfigPacketHandler, GetRichPresenceConfigPacket>(out _))
         {
             context.Logging.Plugin.Error($"Failed to register {nameof(GetRichPresenceConfigPacketHandler)} packet handler.");
             Environment.Exit(-4);
@@ -44,7 +50,7 @@ public class PluginEntry: ServerPluginEntry
     
     public override void OnStart(IServerPluginContext context)
     {
-        
+        Logger.Write(LogLevel.Info,"DiscordRPC-Plugin-Server started");
     }
 
     public override void OnStop(IServerPluginContext context)

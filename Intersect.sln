@@ -88,6 +88,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DiscordRPC-Plugin", "Discor
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DiscordRPC-Plugin-Server", "DiscordRPC-Plugin-Server\DiscordRPC-Plugin-Server.csproj", "{C1C10292-A4FC-4AFC-99E1-3372993D9E85}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Blinkuz.Plugins.Tools", "Blinkuz.Plugins.Tools\Blinkuz.Plugins.Tools.csproj", "{1289E8EF-C91A-4689-8667-5EB562F6B98F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -209,6 +211,12 @@ Global
 		{C1C10292-A4FC-4AFC-99E1-3372993D9E85}.NoFody|Any CPU.Build.0 = Debug|Any CPU
 		{C1C10292-A4FC-4AFC-99E1-3372993D9E85}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C1C10292-A4FC-4AFC-99E1-3372993D9E85}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1289E8EF-C91A-4689-8667-5EB562F6B98F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1289E8EF-C91A-4689-8667-5EB562F6B98F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1289E8EF-C91A-4689-8667-5EB562F6B98F}.NoFody|Any CPU.ActiveCfg = Debug|Any CPU
+		{1289E8EF-C91A-4689-8667-5EB562F6B98F}.NoFody|Any CPU.Build.0 = Debug|Any CPU
+		{1289E8EF-C91A-4689-8667-5EB562F6B98F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1289E8EF-C91A-4689-8667-5EB562F6B98F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

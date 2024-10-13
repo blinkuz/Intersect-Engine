@@ -4,6 +4,7 @@
         <RootNamespace>DiscordRPC_Plugin_Server</RootNamespace>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+      <IntersectPluginType>Server</IntersectPluginType>
     </PropertyGroup>
 
     <ItemGroup>
@@ -11,6 +12,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\Blinkuz.Plugins.Tools\Blinkuz.Plugins.Tools.csproj" />
       <ProjectReference Include="..\Intersect.Server.Framework\Intersect.Server.Framework.csproj" />
     </ItemGroup>
 

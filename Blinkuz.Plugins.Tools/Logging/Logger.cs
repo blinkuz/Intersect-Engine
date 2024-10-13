@@ -1,6 +1,6 @@
 ﻿using Intersect.Plugins;
 
-namespace DiscordRPC_Plugin.Loggin;
+namespace Blinkuz.Plugins.Tools.Logging;
 
 public static class Logger
 {
@@ -22,6 +22,7 @@ public static class Logger
                 break;
 
             case LogLevel.Info:
+                Context.Logging.Plugin.Info(message);
                 break;
 
             case LogLevel.Warning:

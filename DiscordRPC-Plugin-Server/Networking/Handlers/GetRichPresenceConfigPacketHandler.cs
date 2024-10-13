@@ -10,8 +10,6 @@ public class GetRichPresenceConfigPacketHandler: IPacketHandler<GetRichPresenceC
 {
     public bool Handle(IPacketSender packetSender, GetRichPresenceConfigPacket packet)
     {
-        Log.Info($"Received a {nameof(GetRichPresenceConfigPacket)} packet from the client!");
-        
         var settings = PluginSettings.Settings;
         if (string.IsNullOrEmpty(settings.DiscordClientId) ||
             string.IsNullOrEmpty(settings.DetailsTemplate) ||
@@ -40,11 +38,7 @@ public class GetRichPresenceConfigPacketHandler: IPacketHandler<GetRichPresenceC
         );
         
         var packetSent = packetSender.Send(configPacket);
-        if (packetSent)
-        {
-            Log.Info($"Sent a {nameof(RichPresenceConfigPacket)} packet to the client!");
-        }
-        else
+        if (!packetSent)
         {
             Log.Error($"Failed to send a {nameof(RichPresenceConfigPacket)} packet to the client!");
         }

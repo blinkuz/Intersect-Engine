@@ -8,8 +8,6 @@ public class RichPresencePacketHandler : IPacketHandler<RichPresenceConfigPacket
 {
     public bool Handle(IPacketSender packetSender, RichPresenceConfigPacket packet)
     {
-        Logger.Write(LogLevel.Info, "Received RichPresenceConfigPacket!");
-
         DiscordRichPresenceManager.Instance.Initialize(
             packet.DiscordClientId,
             packet.DetailsTemplate,

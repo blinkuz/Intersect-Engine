@@ -9,13 +9,8 @@ public class JoinGamePostHook: IPacketHandler<JoinGamePacket>
 {
     public bool Handle(IPacketSender packetSender, JoinGamePacket packet)
     {
-        Log.Info("Received a JoinGamePacket from the server!");
         var packetSent = packetSender.Send(new GetRichPresenceConfigPacket());
-        if (packetSent)
-        {
-            Log.Info("Sent a message to the client!");
-        }
-        else
+        if (!packetSent)
         {
             Log.Error("Failed to send a message to the client!");
         }

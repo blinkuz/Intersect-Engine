@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Diagnostics.CodeAnalysis;
+using Intersect.Collections.Slotting;
 using Intersect.Enums;
 using Intersect.GameObjects;
 using Intersect.GameObjects.Events;
@@ -10,29 +12,43 @@ using Intersect.Server.Database;
 using Intersect.Server.Database.PlayerData.Players;
 using Intersect.Server.Entities.Combat;
 using Intersect.Server.Entities.Events;
+using Intersect.Server.Framework.Entities;
+using Intersect.Server.Framework.Items;
 using Intersect.Server.General;
 using Intersect.Server.Localization;
 using Intersect.Server.Maps;
 using Intersect.Server.Networking;
 using Intersect.Utilities;
 using Newtonsoft.Json;
-using MapAttribute = Intersect.Enums.MapAttribute;
 using Stat = Intersect.Enums.Stat;
 
 namespace Intersect.Server.Entities;
 
-public abstract partial class Entity : IDisposable
+public abstract partial class Entity : IEntity
 {
     //Instance Values
     private Guid _id = Guid.NewGuid();
 
-    public Guid MapInstanceId = Guid.Empty;
+    [NotMapped]
+    public Guid MapInstanceId { get; set; } = Guid.Empty;
 
-    [JsonProperty("MaxVitals"), NotMapped] private long[] _maxVital = new long[Enum.GetValues<Vital>().Length];
+    [NotMapped] private long[] _maxVital = new long[Enum.GetValues<Vital>().Length];
+
+    [JsonProperty("MaxVitals"), NotMapped]
+    public IReadOnlyDictionary<Vital, long> MaxVitalsLookup => GetMaxVitals().Select((value, index) => (value, index))
+        .ToDictionary(t => (Vital)t.index, t => t.value).AsReadOnly();
 
     [NotMapped, JsonIgnore] public Combat.Stat[] Stat = new Combat.Stat[Enum.GetValues<Stat>().Length];
 
-    [NotMapped, JsonIgnore] public Entity Target { get; set; } = null;
+    [JsonProperty("Stats"), NotMapped]
+    public IReadOnlyDictionary<Stat, int> StatsLookup => Stat.Select((computedStat, index) => (computedStat, index))
+        .ToDictionary(t => (Stat)t.index, t => t.computedStat.Value()).AsReadOnly();
+
+    [JsonProperty("Vitals"), NotMapped]
+    public IReadOnlyDictionary<Vital, long> VitalsLookup => _vitals.Select((value, index) => (value, index))
+        .ToDictionary(t => (Vital)t.index, t => t.value).AsReadOnly();
+
+    [NotMapped, JsonIgnore] public Entity? Target { get; set; }
 
     public Entity() : this(Guid.NewGuid(), Guid.Empty)
     {
@@ -98,12 +114,12 @@ public abstract partial class Entity : IDisposable
     [JsonIgnore, Column("Vitals")]
     public string VitalsJson
     {
-        get => DatabaseUtils.SaveLongArray(mVitals, Enum.GetValues<Vital>().Length);
-        set => mVitals = DatabaseUtils.LoadLongArray(value, Enum.GetValues<Vital>().Length);
+        get => DatabaseUtils.SaveLongArray(_vitals, Enum.GetValues<Vital>().Length);
+        set => _vitals = DatabaseUtils.LoadLongArray(value, Enum.GetValues<Vital>().Length);
     }
 
-    [JsonProperty("Vitals"), NotMapped]
-    private long[] mVitals { get; set; } = new long[Enum.GetValues<Vital>().Length];
+    [NotMapped]
+    private long[] _vitals { get; set; } = new long[Enum.GetValues<Vital>().Length];
 
     [JsonIgnore, NotMapped]
     private long[] mOldVitals { get; set; } = new long[Enum.GetValues<Vital>().Length];
@@ -134,12 +150,17 @@ public abstract partial class Entity : IDisposable
     public int[] StatPointAllocations { get; set; } = new int[Enum.GetValues<Stat>().Length];
 
     //Inventory
-    [JsonIgnore]
-    public virtual List<InventorySlot> Items { get; set; } = new List<InventorySlot>();
+    public virtual SlotList<InventorySlot> Items { get; set; } = new(
+        Options.Instance.PlayerOpts.MaxInventory,
+        InventorySlot.Create
+    );
 
     //Spells
     [JsonIgnore]
-    public virtual List<SpellSlot> Spells { get; set; } = new List<SpellSlot>();
+    public virtual SlotList<SpellSlot> Spells { get; set; } = new(
+        Options.Instance.PlayerOpts.MaxSpells,
+        SpellSlot.Create
+    );
 
     [JsonIgnore, Column(nameof(NameColor))]
     public string NameColorJson
@@ -215,11 +236,10 @@ public abstract partial class Entity : IDisposable
     public bool HideEntity { get; set; } = false;
 
     [NotMapped, JsonIgnore]
-    public List<Guid> Animations { get; set; } = new List<Guid>();
+    public List<Guid> Animations { get; set; } = [];
 
     //DoT/HoT Spells
-    [NotMapped, JsonIgnore]
-    public ConcurrentDictionary<Guid, DoT> DoT { get; set; } = new ConcurrentDictionary<Guid, DoT>();
+    [NotMapped, JsonIgnore] public ConcurrentDictionary<Guid, DoT> DoT { get; } = [];
 
     [NotMapped, JsonIgnore]
     public DoT[] CachedDots { get; set; } = new DoT[0];
@@ -297,6 +317,8 @@ public abstract partial class Entity : IDisposable
             IsDisposed = true;
         }
     }
+
+    public bool HasStatusEffect(SpellEffect spellEffect) => CachedStatuses.Any(s => s.Type == spellEffect);
 
     public virtual void Update(long timeMs)
     {
@@ -383,7 +405,7 @@ public abstract partial class Entity : IDisposable
     /// </summary>
     public virtual void UpdateSpellCooldown(SpellBase spellBase, int spellSlot)
     {
-        if (spellSlot < 0 || spellSlot >= Options.MaxPlayerSkills)
+        if (spellSlot < 0 || spellSlot >= Options.Instance.PlayerOpts.MaxSpells)
         {
             return;
         }
@@ -411,6 +433,28 @@ public abstract partial class Entity : IDisposable
         Direction direction,
         out MovementBlockerType blockerType,
         out EntityType entityType
+    ) => CanMoveInDirection(
+        direction,
+        out blockerType,
+        out entityType,
+        out _
+    );
+
+    /// <summary>
+    ///     Determines if this entity can move in the specified <paramref name="direction"/>.
+    /// </summary>
+    /// <param name="direction">The <see cref="Direction"/> the entity is attempting to move in.</param>
+    /// <param name="blockerType">The type of blocker, if any.</param>
+    /// <param name="entityType">
+    ///     The type of entity that is blocking movement, if <paramref name="blockerType"/> is set to <see cref="MovementBlockerType.Entity"/>.
+    /// </param>
+    /// <param name="blockingEntity">The entity (if any) that is blocking movement.</param>
+    /// <returns>If the entity is able to move in the specified direction.</returns>
+    public virtual bool CanMoveInDirection(
+        Direction direction,
+        out MovementBlockerType blockerType,
+        out EntityType entityType,
+        out Entity? blockingEntity
     )
     {
         entityType = default;
@@ -467,12 +511,14 @@ public abstract partial class Entity : IDisposable
         if (!tileHelper.Translate(xOffset, yOffset))
         {
             blockerType = MovementBlockerType.OutOfBounds;
+            blockingEntity = default;
             return false;
         }
 
         if (!MapController.TryGet(tileHelper.GetMapId(), out var mapController))
         {
             blockerType = MovementBlockerType.OutOfBounds;
+            blockingEntity = default;
             return false;
         }
 
@@ -481,6 +527,7 @@ public abstract partial class Entity : IDisposable
 
         if (IsBlockedByMapAttribute(direction, mapController.Attributes[tileX, tileY], out blockerType))
         {
+            blockingEntity = default;
             return false;
         }
 
@@ -489,18 +536,21 @@ public abstract partial class Entity : IDisposable
         {
             MovementBlockerType componentBlockerType = default;
             EntityType componentBlockingEntityType = default;
+            Entity? componentBlockingEntity = default;
 
             if (direction.GetComponentDirections()
                 .All(
                     componentDirection => !CanMoveInDirection(
                         componentDirection,
                         out componentBlockerType,
-                        out componentBlockingEntityType
+                        out componentBlockingEntityType,
+                        out componentBlockingEntity
                     )
                 ))
             {
                 blockerType = componentBlockerType;
                 entityType = componentBlockingEntityType;
+                blockingEntity = componentBlockingEntity;
                 return false;
             }
         }
@@ -513,7 +563,8 @@ public abstract partial class Entity : IDisposable
                 tileY,
                 Z,
                 out blockerType,
-                out entityType
+                out entityType,
+                out blockingEntity
             );
         }
 
@@ -532,23 +583,27 @@ public abstract partial class Entity : IDisposable
                 case Player _ when !CanPassPlayer(mapController):
                     blockerType = MovementBlockerType.Entity;
                     entityType = EntityType.Player;
+                    blockingEntity = mapEntity;
                     return false;
                 case Npc _:
                     // There should honestly be an Npc EntityType...
                     blockerType = MovementBlockerType.Entity;
                     entityType = EntityType.Player;
+                    blockingEntity = mapEntity;
                     return false;
                 case Resource resource when !resource.IsPassable():
                     blockerType = MovementBlockerType.Entity;
                     entityType = EntityType.Resource;
+                    blockingEntity = mapEntity;
                     return false;
             }
         }
 
-        if (IsBlockedByEvent(mapInstance, tileHelper.GetX(), tileHelper.GetY()))
+        if (IsBlockedByEvent(mapInstance, tileHelper.GetX(), tileHelper.GetY(), out var blockingEvent))
         {
             blockerType = MovementBlockerType.Entity;
             entityType = EntityType.Event;
+            blockingEntity = blockingEvent;
             return false;
         }
 
@@ -558,7 +613,8 @@ public abstract partial class Entity : IDisposable
                 tileHelper.GetY(),
                 Z,
                 out blockerType,
-                out entityType
+                out entityType,
+                out blockingEntity
             ))
         {
             return false;
@@ -606,17 +662,24 @@ public abstract partial class Entity : IDisposable
 
     protected virtual bool CanPassPlayer(MapController targetMap) => false;
 
-    protected virtual bool IsBlockedByEvent(MapInstance mapInstance, int tileX, int tileY)
+    protected virtual bool IsBlockedByEvent(
+        MapInstance mapInstance,
+        int tileX,
+        int tileY,
+        [NotNullWhen(true)] out EventPageInstance? blockingEvent
+    )
     {
         if (mapInstance == default)
         {
+            blockingEvent = default;
             return false;
         }
 
-        return mapInstance.GlobalEventInstances.Values
+        blockingEvent = mapInstance.GlobalEventInstances.Values
             .SelectMany(globalEventInstance => globalEventInstance.GlobalPageInstance)
-            .Where(instance => instance != default && !instance.Passable)
-            .Any(instance => instance.X == tileX && instance.Y == tileY && instance.Z == Z);
+            .Where(instance => instance is { Passable: false })
+            .FirstOrDefault(instance => instance.X == tileX && instance.Y == tileY && instance.Z == Z);
+        return blockingEvent != default;
     }
 
     protected virtual bool TryGetBlockerOnTile(
@@ -625,11 +688,13 @@ public abstract partial class Entity : IDisposable
         int y,
         int z,
         out MovementBlockerType blockerType,
-        out EntityType entityType
+        out EntityType entityType,
+        out Entity? blockingEntity
     )
     {
         blockerType = map == default ? MovementBlockerType.OutOfBounds : MovementBlockerType.NotBlocked;
         entityType = default;
+        blockingEntity = default;
         return blockerType != MovementBlockerType.NotBlocked;
     }
 
@@ -1175,13 +1240,13 @@ public abstract partial class Entity : IDisposable
 
                 // ReSharper disable once InvertIf
                 //Check for slide tiles
-                if (attribute?.Type == MapAttribute.Slide)
+                if (attribute?.Type == MapAttributeType.Slide)
                 {
                     // If sets direction, set it.
                     if (((MapSlideAttribute)attribute).Direction > 0)
                     {
                         //Check for slide tiles
-                        if (attribute != null && attribute.Type == MapAttribute.Slide)
+                        if (attribute != null && attribute.Type == MapAttributeType.Slide)
                         {
                             if (((MapSlideAttribute)attribute).Direction > 0)
                             {
@@ -1237,7 +1302,7 @@ public abstract partial class Entity : IDisposable
             if (Y < Options.MapHeight && Y >= 0)
             {
                 var attribute = MapController.Get(MapId).Attributes[X, Y];
-                if (attribute != null && attribute.Type == MapAttribute.ZDimension)
+                if (attribute != null && attribute.Type == MapAttributeType.ZDimension)
                 {
                     if (((MapZDimensionAttribute)attribute).GatewayTo > 0)
                     {
@@ -1345,19 +1410,37 @@ public abstract partial class Entity : IDisposable
 
     public virtual bool CanAttack(Entity entity, SpellBase spell) => !IsCasting;
 
+    public virtual bool CanTarget(Entity? entity)
+    {
+        if (entity == null)
+        {
+            // If it's not an entity we can't target it
+            return false;
+        }
+
+        if (IsAllyOf(entity))
+        {
+            // If it's an ally we can always target them
+            return true;
+        }
+
+        // If it's not an ally we can't target it if it's stealthed
+        return !entity.HasStatusEffect(SpellEffect.Stealth);
+    }
+
     public virtual void ProcessRegen()
     {
     }
 
     public long GetVital(int vital)
     {
-        return mVitals[vital];
+        return _vitals[vital];
     }
 
     public long[] GetVitals()
     {
         var vitals = new long[Enum.GetValues<Vital>().Length];
-        Array.Copy(mVitals, 0, vitals, 0, Enum.GetValues<Vital>().Length);
+        Array.Copy(_vitals, 0, vitals, 0, Enum.GetValues<Vital>().Length);
 
         return vitals;
     }
@@ -1379,7 +1462,7 @@ public abstract partial class Entity : IDisposable
             value = GetMaxVital(vital);
         }
 
-        mVitals[vital] = value;
+        _vitals[vital] = value;
     }
 
     public void SetVital(Vital vital, long value)
@@ -2859,6 +2942,11 @@ public abstract partial class Entity : IDisposable
             return Dir;
         }
 
+        if (en.CachedStatuses.Any(status => status.Type == SpellEffect.Stealth))
+        {
+            return Dir;
+        }
+
         if (!MapController.TryGet(MapId, out var originMapController) ||
             !MapController.TryGet(en.MapId, out var targetMapController))
         {
@@ -3056,13 +3144,16 @@ public abstract partial class Entity : IDisposable
             // Spawn the actual item!
             if (MapController.TryGetInstanceFromMap(MapId, MapInstanceId, out var instance))
             {
-                instance.SpawnItem(X, Y, drop, drop.Quantity, lootOwner, sendUpdate);
+                var itemSource = this.AsItemSource();
+                instance.SpawnItem(itemSource, X, Y, drop, drop.Quantity, lootOwner, sendUpdate);
             }
 
             // Process the drop (for players this would remove it from their inventory)
             OnDropItem(slot, drop);
         }
     }
+
+    protected abstract EntityItemSource? AsItemSource();
 
     public bool IsDead()
     {

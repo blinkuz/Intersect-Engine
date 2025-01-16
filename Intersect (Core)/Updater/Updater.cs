@@ -5,6 +5,7 @@ using System.Security.Cryptography;
 using System.Text;
 
 using Intersect.Configuration;
+using Intersect.Framework.Core.Serialization;
 using Intersect.Logging;
 
 using Newtonsoft.Json;
@@ -143,7 +144,7 @@ public partial class Updater
                         }
                     }
 
-                    //Copy Over 
+                    //Copy Over
                     mCurrentVersion = new Update();
                     foreach (var file in mUpdate.Files)
                     {
@@ -180,7 +181,7 @@ public partial class Updater
                             }
 
                             //Otherwise let's compare hashes and potentially add it to the update list
-                            var md5Hash = "";
+                            var md5Hash = string.Empty;
                             using (var md5 = MD5.Create())
                             {
                                 using (var fs = File.OpenRead(file.Path))
@@ -277,8 +278,13 @@ public partial class Updater
         File.WriteAllText(
             mCurrentVersionPath,
             JsonConvert.SerializeObject(
-                mCurrentVersion.Filter(IsClient), Formatting.Indented,
-                new JsonSerializerSettings { DefaultValueHandling = DefaultValueHandling.Ignore }
+                mCurrentVersion.Filter(IsClient),
+                Formatting.Indented,
+                new JsonSerializerSettings
+                {
+                    DefaultValueHandling = DefaultValueHandling.Ignore,
+                    SerializationBinder = new IntersectTypeSerializationBinder(),
+                }
             )
         );
 
@@ -557,7 +563,7 @@ public partial class Updater
         }
 
         //Check MD5
-        var md5Hash = "";
+        var md5Hash = string.Empty;
         using (var md5 = MD5.Create())
         {
             using (var stream = new MemoryStream(fileData))

@@ -11,8 +11,10 @@ using Intersect.Server.Networking;
 using Intersect.Utilities;
 using Intersect.Server.Entities;
 using Intersect.Server.Classes.Maps;
-using MapAttribute = Intersect.Enums.MapAttribute;
 using Intersect.Server.Core.MapInstancing;
+using Intersect.Server.Framework.Items;
+using Intersect.Server.Framework.Maps;
+using Intersect.Server.Plugins.Helpers;
 
 namespace Intersect.Server.Maps;
 
@@ -47,7 +49,7 @@ namespace Intersect.Server.Maps;
 /// </para>
 /// </remarks>
 /// </summary>
-public partial class MapInstance : IDisposable
+public partial class MapInstance : IMapInstance
 {
     /// <summary>
     /// Reference to stay consistent/easy-to-read with overworld behavior
@@ -78,7 +80,7 @@ public partial class MapInstance : IDisposable
     /// Note that this is NOT the Instance instance identifier - that is <see cref="MapInstanceId"/>
     /// </remarks>
     /// </summary>
-    public Guid Id;
+    public Guid Id { get; set; }
 
     /// <summary>
     /// An ID referring to which instance this processer belongs to.
@@ -87,7 +89,7 @@ public partial class MapInstance : IDisposable
     /// will be processed and fed packets by that processer.
     /// </remarks>
     /// </summary>
-    public Guid MapInstanceId;
+    public Guid MapInstanceId { get; set; }
 
     /// <summary>
     /// The last time the <see cref="Core.LogicService.LogicThread"/> made a call to <see cref="Update(long)"/>.
@@ -141,7 +143,7 @@ public partial class MapInstance : IDisposable
     // Animations & Text
     private MapActionMessages mActionMessages = new MapActionMessages();
     private MapAnimations mMapAnimations = new MapAnimations();
-
+    
     public MapInstance(MapController map, Guid mapInstanceId, Player creator)
     {
         mMapController = map;
@@ -470,7 +472,7 @@ public partial class MapInstance : IDisposable
             {
                 x = (byte)Randomization.Next(0, Options.MapWidth);
                 y = (byte)Randomization.Next(0, Options.MapHeight);
-                if (mMapController.Attributes[x, y] == null || mMapController.Attributes[x, y].Type == (int)MapAttribute.Walkable)
+                if (mMapController.Attributes[x, y] == null || mMapController.Attributes[x, y].Type == (int)MapAttributeType.Walkable)
                 {
                     break;
                 }
@@ -700,10 +702,9 @@ public partial class MapInstance : IDisposable
     /// <summary>
     /// Add a map item to this map.
     /// </summary>
-    /// <param name="x">The X location of this item.</param>
-    /// <param name="y">The Y location of this item.</param>
+    /// <param name="source">The source of the item, e.g. a player who dropped it, or a monster who spawned it on death, or the map instance in which it was spawned.</param>
     /// <param name="item">The <see cref="MapItem"/> to add to the map.</param>
-    private void AddItem(MapItem item)
+    private void AddItem(IItemSource? source, MapItem item)
     {
         AllMapItems.TryAdd(item.UniqueId, item);
 
@@ -713,26 +714,30 @@ public partial class MapInstance : IDisposable
         }
 
         TileItems[item.TileIndex]?.TryAdd(item.UniqueId, item);
+        
+        MapHelper.Instance.InvokeItemAdded(source, item);
     }
 
     /// <summary>
     /// Spawn an item to this map instance.
     /// </summary>
+    /// <param name="source">The source of the item, e.g. a player who dropped it, or a monster who spawned it on death, or the map instance in which it was spawned</param>
     /// <param name="x">The horizontal location of this item</param>
     /// <param name="y">The vertical location of this item.</param>
     /// <param name="item">The <see cref="Item"/> to spawn on the map.</param>
     /// <param name="amount">The amount of times to spawn this item to the map. Set to the <see cref="Item"/> quantity, overwrites quantity if stackable!</param>
-    public void SpawnItem(int x, int y, Item item, int amount) => SpawnItem(x, y, item, amount, Guid.Empty);
+    public void SpawnItem(IItemSource? source, int x, int y, Item item, int amount) => SpawnItem(source, x, y, item, amount, Guid.Empty);
 
     /// <summary>
     /// Spawn an item to this map instance.
     /// </summary>
+    /// <param name="source">The source of the item, e.g. a player who dropped it, or a monster who spawned it on death, or the map instance in which it was spawned</param>
     /// <param name="x">The horizontal location of this item</param>
     /// <param name="y">The vertical location of this item.</param>
     /// <param name="item">The <see cref="Item"/> to spawn on the map.</param>
     /// <param name="amount">The amount of times to spawn this item to the map. Set to the <see cref="Item"/> quantity, overwrites quantity if stackable!</param>
     /// <param name="owner">The player Id that will be the temporary owner of this item.</param>
-    public void SpawnItem(int x, int y, Item item, int amount, Guid owner, bool sendUpdate = true)
+    public void SpawnItem(IItemSource? source, int x, int y, Item item, int amount, Guid owner, bool sendUpdate = true)
     {
         if (item == null)
         {
@@ -792,7 +797,7 @@ public partial class MapInstance : IDisposable
             }
 
             // Drop the new item.
-            AddItem(mapItem);
+            AddItem(source, mapItem);
             if (sendUpdate)
             {
                 PacketSender.SendMapItemUpdate(mMapController.Id, MapInstanceId, mapItem, false);
@@ -822,7 +827,7 @@ public partial class MapInstance : IDisposable
                     return;
                 }
 
-                AddItem(mapItem);
+                AddItem(source, mapItem);
             }
             PacketSender.SendMapItemsToProximity(mMapController.Id, this);
         }
@@ -924,7 +929,15 @@ public partial class MapInstance : IDisposable
             {
                 mapItem.Quantity = 1;
             }
-            AddItem(mapItem);
+
+            var mapItemSource = new MapItemSource
+            {
+                Id = MapInstanceId,
+                MapInstanceReference = new WeakReference<IMapInstance>(this), 
+                DescriptorId = mMapController.Id,
+            };
+            
+            AddItem(mapItemSource, mapItem);
             PacketSender.SendMapItemUpdate(mMapController.Id, MapInstanceId, mapItem, false);
         }
     }
@@ -941,11 +954,11 @@ public partial class MapInstance : IDisposable
             {
                 if (mMapController.Attributes[x, y] != null)
                 {
-                    if (mMapController.Attributes[x, y].Type == MapAttribute.Item)
+                    if (mMapController.Attributes[x, y].Type == MapAttributeType.Item)
                     {
                         SpawnAttributeItem(x, y);
                     }
-                    else if (mMapController.Attributes[x, y].Type == MapAttribute.Resource)
+                    else if (mMapController.Attributes[x, y].Type == MapAttributeType.Resource)
                     {
                         SpawnAttributeResource(x, y);
                     }
@@ -1116,8 +1129,8 @@ public partial class MapInstance : IDisposable
         }
 
         //Check if tile is a blocked attribute
-        if (mMapController.Attributes[x, y] != null && (mMapController.Attributes[x, y].Type == MapAttribute.Blocked ||
-            mMapController.Attributes[x, y].Type == MapAttribute.Animation && ((MapAnimationAttribute)mMapController.Attributes[x, y]).IsBlock))
+        if (mMapController.Attributes[x, y] != null && (mMapController.Attributes[x, y].Type == MapAttributeType.Blocked ||
+            mMapController.Attributes[x, y].Type == MapAttributeType.Animation && ((MapAnimationAttribute)mMapController.Attributes[x, y]).IsBlock))
         {
             return true;
         }
@@ -1182,14 +1195,14 @@ public partial class MapInstance : IDisposable
             {
                 if (mMapController.Attributes[x, y] != null)
                 {
-                    if (mMapController.Attributes[x, y].Type == MapAttribute.Blocked ||
-                        mMapController.Attributes[x, y].Type == MapAttribute.GrappleStone ||
-                        mMapController.Attributes[x, y].Type == MapAttribute.Animation && ((MapAnimationAttribute)mMapController.Attributes[x, y]).IsBlock)
+                    if (mMapController.Attributes[x, y].Type == MapAttributeType.Blocked ||
+                        mMapController.Attributes[x, y].Type == MapAttributeType.GrappleStone ||
+                        mMapController.Attributes[x, y].Type == MapAttributeType.Animation && ((MapAnimationAttribute)mMapController.Attributes[x, y]).IsBlock)
                     {
                         blocks.Add(new BytePoint(x, y));
                         npcBlocks.Add(new BytePoint(x, y));
                     }
-                    else if (mMapController.Attributes[x, y].Type == MapAttribute.NpcAvoid)
+                    else if (mMapController.Attributes[x, y].Type == MapAttributeType.NpcAvoid)
                     {
                         npcBlocks.Add(new BytePoint(x, y));
                     }

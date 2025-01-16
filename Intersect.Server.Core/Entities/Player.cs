@@ -1,13 +1,16 @@
 using System.Collections.Concurrent;
+using System.Collections.Immutable;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
+using Intersect.Collections.Slotting;
 using Intersect.Enums;
+using Intersect.Framework.Core.GameObjects.Variables;
 using Intersect.GameObjects;
 using Intersect.GameObjects.Crafting;
 using Intersect.GameObjects.Events;
 using Intersect.GameObjects.Events.Commands;
 using Intersect.GameObjects.Maps;
-using Intersect.GameObjects.Switches_and_Variables;
 using Intersect.Logging;
 using Intersect.Network;
 using Intersect.Network.Packets.Server;
@@ -19,13 +22,14 @@ using Intersect.Server.Database.PlayerData.Players;
 using Intersect.Server.Database.PlayerData.Security;
 using Intersect.Server.Entities.Combat;
 using Intersect.Server.Entities.Events;
+using Intersect.Server.Framework.Entities;
+using Intersect.Server.Framework.Items;
 using Intersect.Server.Localization;
 using Intersect.Server.Maps;
 using Intersect.Server.Networking;
 using Intersect.Utilities;
 
 using Newtonsoft.Json;
-using MapAttribute = Intersect.Enums.MapAttribute;
 using Stat = Intersect.Enums.Stat;
 
 namespace Intersect.Server.Entities;
@@ -35,7 +39,6 @@ public partial class Player : Entity
 {
     [NotMapped, JsonIgnore]
     public Guid PreviousMapInstanceId = Guid.Empty;
-
     //Online Players List
     private static readonly ConcurrentDictionary<Guid, Player> OnlinePlayers = new ConcurrentDictionary<Guid, Player>();
 
@@ -66,8 +69,8 @@ public partial class Player : Entity
 
     public static int OnlineCount => OnlinePlayers.Count;
 
-    [JsonProperty("MaxVitals"), NotMapped]
-    public new long[] MaxVitals => GetMaxVitals();
+    [JsonIgnore, NotMapped]
+    public long[] MaxVitals => GetMaxVitals();
 
     //Name, X, Y, Dir, Etc all in the base Entity Class
     public Guid ClassId { get; set; }
@@ -88,13 +91,21 @@ public partial class Player : Entity
         set => Equipment = DatabaseUtils.LoadIntArray(value, Options.EquipmentSlots.Count);
     }
 
-    [NotMapped]
+    [NotMapped, JsonProperty("EquipmentSlots")]
     public int[] Equipment { get; set; } = new int[Options.EquipmentSlots.Count];
+
+    [NotMapped]
+    public virtual ImmutableArray<Bag> Bags =>
+        [..Items.Where(item => item.BagId.HasValue && item.BagId.Value != default).Select(item => item.Bag)];
+
+    [NotMapped]
+    public virtual ImmutableArray<Guid> BagIds =>
+        [..Items.Where(item => item.BagId.HasValue && item.BagId.Value != default).Select(item => item.BagId ?? default)];
 
     /// <summary>
     /// Returns a list of all equipped <see cref="Item"/>s
     /// </summary>
-    [NotMapped, JsonIgnore]
+    [NotMapped, JsonProperty(nameof(Equipment))]
     public List<Item> EquippedItems
     {
         get
@@ -139,28 +150,30 @@ public partial class Player : Entity
     public DateTime? LoginTime { get; set; }
 
     //Bank
-    [JsonIgnore]
-    public virtual List<BankSlot> Bank { get; set; } = new List<BankSlot>();
+    public virtual SlotList<BankSlot> Bank { get; set; } = new(
+        Options.Instance.PlayerOpts.InitialBankslots,
+        BankSlot.Create
+    );
 
     //Friends -- Not used outside of EF
     [JsonIgnore]
-    public virtual List<Friend> Friends { get; set; } = new List<Friend>();
+    public virtual List<Friend> Friends { get; set; } = [];
 
     //Local Friends
-    [NotMapped, JsonProperty("Friends")]
-    public virtual Dictionary<Guid, string> CachedFriends { get; set; } = new Dictionary<Guid, string>();
+    [NotMapped, JsonProperty(nameof(Friends))]
+    public virtual Dictionary<Guid, string> CachedFriends { get; set; } = [];
 
-    //HotBar
-    [JsonIgnore]
-    public virtual List<HotbarSlot> Hotbar { get; set; } = new List<HotbarSlot>();
+    // HotBar
+    public virtual SlotList<HotbarSlot> Hotbar { get; set; } = new(
+        Options.Instance.PlayerOpts.HotbarSlotCount,
+        HotbarSlot.Create
+    );
 
     //Quests
-    [JsonIgnore]
-    public virtual List<Quest> Quests { get; set; } = new List<Quest>();
+    public virtual List<Quest> Quests { get; set; } = [];
 
     //Variables
-    [JsonIgnore]
-    public virtual List<PlayerVariable> Variables { get; set; } = new List<PlayerVariable>();
+    public virtual List<PlayerVariable> Variables { get; set; } = [];
 
     [JsonIgnore, NotMapped]
     public bool IsValidPlayer => !IsDisposed && Client?.Entity == this;
@@ -185,23 +198,75 @@ public partial class Player : Entity
     [NotMapped, JsonIgnore]
     public bool InOpenInstance => InstanceType != MapInstanceType.Personal && InstanceType != MapInstanceType.Shared;
 
-    /// <summary>
-    /// References the in-memory copy of the guild for this player, reference this instead of the Guild property below.
-    /// </summary>
-    [NotMapped][JsonIgnore] public Guild Guild { get; set; }
-
     [NotMapped][JsonIgnore] public bool IsInGuild => Guild != null;
 
-    [NotMapped] public Guid GuildId => DbGuild?.Id ?? default;
+    public Guid? GuildId { get; set; }
 
-    /// <summary>
-    /// This field is used for EF database fields only and should never be assigned to or used, instead the guild instance will be assigned to CachedGuild above
-    /// </summary>
-    [JsonIgnore] public Guild DbGuild { get; set; }
+    [JsonIgnore]
+    [ForeignKey(nameof(GuildId))]
+    public Guild? Guild
+    {
+        get => _guild;
+        set
+        {
+            _guild = value;
+            GuildId = _guild?.Id;
+        }
+    }
+
+    public Guid? PendingGuildInviteFromId
+    {
+        get => _pendingGuildInviteFromId;
+        private set
+        {
+            _pendingGuildInviteFromId = value;
+            if (_pendingGuildInviteFromId != PendingGuildInviteFrom?.Id)
+            {
+                PendingGuildInviteFrom = null;
+            }
+        }
+    }
+
+    [JsonIgnore]
+    [ForeignKey(nameof(PendingGuildInviteFromId))]
+    public Player? PendingGuildInviteFrom { get; set; }
+
+    public Guid? PendingGuildInviteToId
+    {
+        get => _pendingGuildInviteToId;
+        private set
+        {
+            _pendingGuildInviteToId = value;
+            if (_pendingGuildInviteToId != PendingGuildInviteTo?.Id)
+            {
+                PendingGuildInviteTo = null;
+            }
+        }
+    }
+
+    [JsonIgnore]
+    [ForeignKey(nameof(PendingGuildInviteToId))]
+    public Guild? PendingGuildInviteTo { get; set; }
 
     [NotMapped]
-    [JsonIgnore]
-    public Tuple<Player, Guild> GuildInvite { get; set; }
+    public GuildInvite PendingGuildInvite
+    {
+        get => new()
+        {
+            FromId = PendingGuildInviteFrom?.Id ?? PendingGuildInviteFromId ?? default,
+            ToId = PendingGuildInviteTo?.Id ?? PendingGuildInviteToId ?? default,
+        };
+        set
+        {
+            if (value == PendingGuildInvite)
+            {
+                return;
+            }
+
+            PendingGuildInviteFromId = value.FromId == default ? null : value.FromId;
+            PendingGuildInviteToId = value.ToId == default ? null : value.ToId;
+        }
+    }
 
     public int GuildRank { get; set; }
 
@@ -286,24 +351,14 @@ public partial class Player : Entity
         return OnlinePlayers.Values.FirstOrDefault(s => s.Name.ToLower().Trim() == charName.ToLower().Trim());
     }
 
-    public bool ValidateLists()
+    public bool ValidateLists(PlayerContext? playerContext = default)
     {
         var changes = false;
 
-        changes |= SlotHelper.ValidateSlots(Spells, Options.MaxPlayerSkills);
-        changes |= SlotHelper.ValidateSlots(Items, Options.MaxInvItems);
-        changes |= SlotHelper.ValidateSlots(Bank, Options.Instance.PlayerOpts.InitialBankslots);
-
-        if (Hotbar.Count < Options.Instance.PlayerOpts.HotbarSlotCount)
-        {
-            Hotbar.Sort((a, b) => a?.Slot - b?.Slot ?? 0);
-            for (var i = Hotbar.Count; i < Options.Instance.PlayerOpts.HotbarSlotCount; i++)
-            {
-                Hotbar.Add(new HotbarSlot(i));
-            }
-
-            changes = true;
-        }
+        changes |= SlotHelper.ValidateSlotList(Spells, Options.Instance.PlayerOpts.MaxSpells);
+        changes |= SlotHelper.ValidateSlotList(Items, Options.Instance.PlayerOpts.MaxInventory);
+        changes |= SlotHelper.ValidateSlotList(Bank, Options.Instance.PlayerOpts.InitialBankslots);
+        changes |= SlotHelper.ValidateSlotList(Hotbar, Options.Instance.PlayerOpts.HotbarSlotCount);
 
         return changes;
     }
@@ -404,6 +459,8 @@ public partial class Player : Entity
             return;
         }
 
+        Guild?.NotifyPlayerDisposed(this);
+
         base.Dispose();
     }
 
@@ -436,6 +493,11 @@ public partial class Player : Entity
     {
         lock (_savingLock)
         {
+            lock (_pendingLogoutLock)
+            {
+                _pendingLogouts.Add(Id);
+            }
+
             _saving = true;
         }
 
@@ -520,7 +582,6 @@ public partial class Player : Entity
 
         //Send guild update to all members when logging out
         Guild?.UpdateMemberList();
-        Guild = null;
         GuildBank = false;
 
         //If our client has disconnected or logged out but we have kept the user logged in due to being in combat then we should try to logout the user now
@@ -535,14 +596,17 @@ public partial class Player : Entity
         var stackTrace = default(string);
 #endif
         var logoutOperationId = Guid.NewGuid();
-        DbInterface.Pool.QueueWorkItem(CompleteLogout, logoutOperationId, stackTrace);
+        DbInterface.Pool.QueueWorkItem(CompleteLogout, logoutOperationId, softLogout, stackTrace);
     }
 
 #if DIAGNOSTIC
     private int _logoutCounter = 0;
 #endif
 
-    public void CompleteLogout(Guid logoutOperationId, string? stackTrace = default)
+    private static readonly HashSet<Guid> _pendingLogouts = [];
+    private static readonly object _pendingLogoutLock = new();
+
+    public void CompleteLogout(Guid logoutOperationId, bool softLogout, string? stackTrace = default)
     {
         if (logoutOperationId != default)
         {
@@ -592,10 +656,20 @@ public partial class Player : Entity
 
         lock (_savingLock)
         {
+            var logoutType = softLogout ? "soft" : "hard";
+            Log.Info($"[Player.CompleteLogout] Done saving {Name} ({logoutType} logout, {Id})");
             _saving = false;
-        }
 
-        Dispose();
+            if (!softLogout)
+            {
+                Dispose();
+            }
+
+            lock (_pendingLogoutLock)
+            {
+                _pendingLogouts.Remove(Id);
+            }
+        }
 
 #if DIAGNOSTIC
         Log.Debug($"Finished {nameof(CompleteLogout)}() #{currentExecutionId} on {Name} ({User?.Name})");
@@ -911,7 +985,7 @@ public partial class Player : Entity
     /// </summary>
     public override void UpdateSpellCooldown(SpellBase spellBase, int spellSlot)
     {
-        if (spellSlot < 0 || spellSlot >= Options.MaxPlayerSkills)
+        if (spellSlot < 0 || spellSlot >= Options.Instance.PlayerOpts.MaxSpells)
         {
             return;
         }
@@ -924,7 +998,7 @@ public partial class Player : Entity
             this.UpdateGlobalCooldown();
         }
     }
-    
+
     public void RemoveEvent(Guid id, bool sendLeave = true)
     {
         Event outInstance;
@@ -1508,7 +1582,7 @@ public partial class Player : Entity
         bool onHitTrigger = false,
         bool trapTrigger = false
     )
-    {   
+    {
         if (!trapTrigger && !ValidTauntTarget(target)) //Traps ignore taunts.
         {
             return;
@@ -2781,7 +2855,7 @@ public partial class Player : Entity
                     // Do we have any items to spawn to the map?
                     if (spawnAmount > 0 && MapController.TryGetInstanceFromMap(Map.Id, MapInstanceId, out var instance))
                     {
-                        instance.SpawnItem(overflowTileX > -1 ? overflowTileX : X, overflowTileY > -1 ? overflowTileY : Y, item, spawnAmount, Id);
+                        instance.SpawnItem(AsItemSource(), overflowTileX > -1 ? overflowTileX : X, overflowTileY > -1 ? overflowTileY : Y, item, spawnAmount, Id);
                         return spawnAmount != item.Quantity;
                     }
 
@@ -2817,10 +2891,23 @@ public partial class Player : Entity
             return true;
         }
 
-        var bankInterface = new BankInterface(this, ((IEnumerable<Item>)Bank).ToList(), new object(), null, Options.Instance.Bank.MaxSlots);
-        return bankOverflow && bankInterface.TryDepositItem(item, sendUpdate);
+        var bankInterface = new BankInterface<BankSlot>(this, Bank);
+        return bankOverflow && bankInterface.TryDepositItem(item: item, sendUpdate: sendUpdate, giveItem: true);
     }
 
+    /// <summary>
+    /// Creates an item source for the player entity.
+    /// </summary>
+    /// <returns>A new <see cref="EntityItemSource"/> object.</returns>
+    protected override EntityItemSource? AsItemSource()
+    {
+        return new EntityItemSource
+        {
+            EntityType = GetEntityType(),
+            EntityReference = new WeakReference<IEntity>(this),
+            Id = this.Id
+        };
+    }
 
     /// <summary>
     /// Gives the player an item. NOTE: This method MAKES ZERO CHECKS to see if this is possible!
@@ -3135,7 +3222,7 @@ public partial class Player : Entity
             return false;
         }
 
-        mapInstance.SpawnItem(X, Y, itemInSlot, itemDescriptor.IsStackable ? amount : 1, Id);
+        mapInstance.SpawnItem(AsItemSource(),X, Y, itemInSlot, itemDescriptor.IsStackable ? amount : 1, Id);
 
         itemInSlot.Quantity = Math.Max(0, itemInSlot.Quantity - amount);
 
@@ -4255,28 +4342,33 @@ public partial class Player : Entity
         FriendRequester != default;
 
     //Bank
-    public bool OpenBank(bool guild = false)
+    public bool OpenBank(bool openGuildBank = false)
     {
         if (IsBusy())
         {
             return false;
         }
 
-        if (guild && Guild == null)
+        if (openGuildBank)
         {
-            return false;
+            var guild = Guild;
+            if (guild == default)
+            {
+                return false;
+            }
+
+            BankInterface = new BankInterface<GuildBankSlot>(
+                this,
+                guild.Bank,
+                guild
+            );
+        }
+        else
+        {
+            BankInterface = new BankInterface<BankSlot>(this, Bank);
         }
 
-        var bankItems = ((IEnumerable<Item>)Bank).ToList();
-
-        if (guild)
-        {
-            bankItems = ((IEnumerable<Item>)Guild.Bank).ToList();
-        }
-
-        BankInterface = new BankInterface(this, bankItems, guild ? Guild.Lock : new object(), guild ? Guild : null, guild ? Guild.BankSlotsCount : Options.Instance.PlayerOpts.InitialBankslots);
-
-        GuildBank = guild;
+        GuildBank = openGuildBank;
         BankInterface.SendOpenBank();
 
         return true;
@@ -4973,6 +5065,8 @@ public partial class Player : Entity
             return;
         }
 
+        var itemSource = AsItemSource();
+
         foreach (var offer in Trading.Offer)
         {
             if (offer == null || offer.ItemId == Guid.Empty)
@@ -4982,7 +5076,7 @@ public partial class Player : Entity
 
             if (!TryGiveItem(offer, -1) && MapController.TryGetInstanceFromMap(MapId, MapInstanceId, out var instance))
             {
-                instance.SpawnItem(X, Y, offer, offer.Quantity, Id);
+                instance.SpawnItem(itemSource, X, Y, offer, offer.Quantity, Id);
                 PacketSender.SendChatMsg(this, Strings.Trading.ItemsDropped, ChatMessageType.Inventory, CustomColors.Alerts.Error);
             }
 
@@ -5240,7 +5334,7 @@ public partial class Player : Entity
             return false;
         }
 
-        for (var i = 0; i < Options.MaxPlayerSkills; i++)
+        for (var i = 0; i < Options.Instance.PlayerOpts.MaxSpells; i++)
         {
             if (Spells[i].SpellId == Guid.Empty)
             {
@@ -5262,7 +5356,7 @@ public partial class Player : Entity
 
     public bool KnowsSpell(Guid spellId)
     {
-        for (var i = 0; i < Options.MaxPlayerSkills; i++)
+        for (var i = 0; i < Options.Instance.PlayerOpts.MaxSpells; i++)
         {
             if (Spells[i].SpellId == spellId)
             {
@@ -5275,7 +5369,7 @@ public partial class Player : Entity
 
     public int FindSpell(Guid spellId)
     {
-        for (var i = 0; i < Options.MaxPlayerSkills; i++)
+        for (var i = 0; i < Options.Instance.PlayerOpts.MaxSpells; i++)
         {
             if (Spells[i].SpellId == spellId)
             {
@@ -5794,14 +5888,14 @@ public partial class Player : Entity
             PacketSender.SendPlayerEquipmentToProximity(this);
             PacketSender.SendEntityStats(this);
         }
-        
+
         CacheEquipmentTriggers();
         UnequipInvalidItems();
     }
 
     [NotMapped, JsonIgnore]
     private List<EventBase> CachedEquipmentOnHitTriggers { get; set; } = new List<EventBase>();
-    
+
     [NotMapped, JsonIgnore]
     private List<EventBase> CachedEquipmentOnDamageTriggers { get; set; } = new List<EventBase>();
 
@@ -6415,7 +6509,7 @@ public partial class Player : Entity
 
     private PlayerVariable CreateVariable(Guid id)
     {
-        if (PlayerVariableBase.Get(id) == null)
+        if (PlayerVariableDescriptor.Get(id) == null)
         {
             return null;
         }
@@ -6664,40 +6758,40 @@ public partial class Player : Entity
                         var type = VariableDataType.Boolean;
                         if (cmd.VariableType == VariableType.PlayerVariable)
                         {
-                            var variable = PlayerVariableBase.Get(cmd.VariableId);
+                            var variable = PlayerVariableDescriptor.Get(cmd.VariableId);
                             if (variable != null)
                             {
-                                type = variable.Type;
+                                type = variable.DataType;
                             }
 
                             value = GetVariableValue(cmd.VariableId);
                         }
                         else if (cmd.VariableType == VariableType.ServerVariable)
                         {
-                            var variable = ServerVariableBase.Get(cmd.VariableId);
+                            var variable = ServerVariableDescriptor.Get(cmd.VariableId);
                             if (variable != null)
                             {
-                                type = variable.Type;
+                                type = variable.DataType;
                             }
 
-                            value = ServerVariableBase.Get(cmd.VariableId)?.Value;
+                            value = ServerVariableDescriptor.Get(cmd.VariableId)?.Value;
                         }
                         else if (cmd.VariableType == VariableType.GuildVariable)
                         {
-                            var variable = GuildVariableBase.Get(cmd.VariableId);
+                            var variable = GuildVariableDescriptor.Get(cmd.VariableId);
                             if (variable != null)
                             {
-                                type = variable.Type;
+                                type = variable.DataType;
                             }
 
                             value = Guild?.GetVariableValue(cmd.VariableId) ?? new VariableValue();
                         }
                         else if (cmd.VariableType == VariableType.UserVariable)
                         {
-                            var variable = UserVariableBase.Get(cmd.VariableId);
+                            var variable = UserVariableDescriptor.Get(cmd.VariableId);
                             if (variable != null)
                             {
-                                type = variable.Type;
+                                type = variable.DataType;
                             }
 
                             value = User.GetVariableValue(cmd.VariableId) ?? new VariableValue();
@@ -6776,7 +6870,7 @@ public partial class Player : Entity
                         }
                         else if (cmd.VariableType == VariableType.ServerVariable)
                         {
-                            var variable = ServerVariableBase.Get(cmd.VariableId);
+                            var variable = ServerVariableDescriptor.Get(cmd.VariableId);
                             if (changed)
                             {
                                 variable.Value = value;
@@ -6793,7 +6887,7 @@ public partial class Player : Entity
                                 {
                                     variable.Value = value;
                                     Guild.StartCommonEventsWithTriggerForAll(Enums.CommonEventTrigger.GuildVariableChange, "", cmd.VariableId.ToString());
-                                    Guild.UpdatedVariables.AddOrUpdate(cmd.VariableId, GuildVariableBase.Get(cmd.VariableId), (key, oldValue) => GuildVariableBase.Get(cmd.VariableId));
+                                    Guild.UpdatedVariables.AddOrUpdate(cmd.VariableId, GuildVariableDescriptor.Get(cmd.VariableId), (key, oldValue) => GuildVariableDescriptor.Get(cmd.VariableId));
                                 }
                             }
                         }
@@ -6804,7 +6898,7 @@ public partial class Player : Entity
                             {
                                 variable.Value = value;
                                 User.StartCommonEventsWithTriggerForAll(CommonEventTrigger.UserVariableChange, "", cmd.VariableId.ToString());
-                                User.UpdatedVariables.AddOrUpdate(cmd.VariableId, UserVariableBase.Get(cmd.VariableId), (key, oldValue) => UserVariableBase.Get(cmd.VariableId));
+                                User.UpdatedVariables.AddOrUpdate(cmd.VariableId, UserVariableDescriptor.Get(cmd.VariableId), (key, oldValue) => UserVariableDescriptor.Get(cmd.VariableId));
                             }
                         }
 
@@ -6880,7 +6974,7 @@ public partial class Player : Entity
         CommonEventTrigger trigger = CommonEventTrigger.None,
         string command = default,
         string parameter = default
-    ) 
+    )
     {
         if (eventDescriptor == null)
         {
@@ -7051,14 +7145,29 @@ public partial class Player : Entity
         return Options.Instance.Passability.Passable[(int)targetMap.ZoneType];
     }
 
-    protected override bool IsBlockedByEvent(MapInstance mapInstance, int tileX, int tileY)
+    protected override bool IsBlockedByEvent(
+        MapInstance mapInstance,
+        int tileX,
+        int tileY,
+        [NotNullWhen(true)] out EventPageInstance? blockingEvent
+    )
     {
+        blockingEvent = default;
         return false;
     }
 
-    protected override bool TryGetBlockerOnTile(MapController map, int x, int y, int z, out MovementBlockerType blockerType, out EntityType entityType)
+    protected override bool TryGetBlockerOnTile(MapController map, int x, int y, int z,
+        out MovementBlockerType blockerType, out EntityType entityType, out Entity? blockingEntity)
     {
-        if (base.TryGetBlockerOnTile(map, x, y, z, out blockerType, out entityType))
+        if (base.TryGetBlockerOnTile(
+                map,
+                x,
+                y,
+                z,
+                out blockerType,
+                out entityType,
+                out blockingEntity
+            ))
         {
             return true;
         }
@@ -7094,7 +7203,7 @@ public partial class Player : Entity
 
             // Check for a warp, if so warp the player.
             var attribute = MapController.Get(MapId).Attributes[X, Y];
-            if (attribute != null && attribute.Type == MapAttribute.Warp)
+            if (attribute != null && attribute.Type == MapAttributeType.Warp)
             {
                 var warpAtt = (MapWarpAttribute)attribute;
                 var dir = Dir;
@@ -7545,10 +7654,10 @@ public partial class Player : Entity
 
     #region Crafting
 
-    [NotMapped, JsonIgnore] public CraftingState CraftingState { get; set; }
+    [NotMapped] public CraftingState? CraftingState { get; set; }
 
     [NotMapped, JsonIgnore] public Guid OpenCraftingTableId { get; set; }
-    
+
     [NotMapped, JsonIgnore] public bool CraftJournalMode { get; set; }
 
     #endregion
@@ -7596,14 +7705,14 @@ public partial class Player : Entity
     private bool JsonInShop => InShop != null;
 
     [JsonIgnore, NotMapped] public Bag InBag;
-    
+
     [JsonIgnore, NotMapped] public bool IsInBag => InBag != null;
 
     [JsonIgnore, NotMapped] public ShopBase InShop;
 
     [NotMapped] public bool InBank => BankInterface != null;
 
-    [NotMapped][JsonIgnore] public BankInterface BankInterface;
+    [NotMapped, JsonIgnore] public IBankInterface BankInterface;
 
     #endregion
 
@@ -7617,6 +7726,9 @@ public partial class Player : Entity
     }
 
     [JsonIgnore] public ConcurrentDictionary<Guid, long> ItemCooldowns = new ConcurrentDictionary<Guid, long>();
+    private Guild _guild;
+    private Guid? _pendingGuildInviteFromId;
+    private Guid? _pendingGuildInviteToId;
 
     #endregion
 

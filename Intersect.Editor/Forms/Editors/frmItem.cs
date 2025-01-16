@@ -216,10 +216,10 @@ public partial class FrmItem : EditorForm
         lblBankStackLimit.Text = Strings.ItemEditor.BankStackLimit;
 
         cmbRarity.Items.Clear();
-        for (var i = 0; i < Options.Instance.Items.RarityTiers.Count; i++)
+        var keyedRarityTiers = Options.Instance.Items.RarityTiers.Select((rarityName, rarity) => (rarity, rarityName));
+        foreach (var (rarity, rarityName) in keyedRarityTiers)
         {
-            var rarityName = Options.Instance.Items.RarityTiers[i];
-            cmbRarity.Items.Add(Strings.ItemEditor.rarity[rarityName]);
+            cmbRarity.Items.Add(Strings.ItemEditor.rarity.GetValueOrDefault(rarityName, $"{rarity}:{rarityName}"));
         }
 
         grpEvents.Text = Strings.ItemEditor.EventGroup;
@@ -345,7 +345,7 @@ public partial class FrmItem : EditorForm
             nudRgbaA.Value = mEditorItem.Color.A;
             cmbEquipmentAnimation.SelectedIndex = AnimationBase.ListIndex(mEditorItem.EquipmentAnimationId) + 1;
             nudPrice.Value = mEditorItem.Price;
-            cmbRarity.SelectedIndex = mEditorItem.Rarity;
+            cmbRarity.Select(mEditorItem.Rarity, 1);
 
             nudStr.Value = mEditorItem.StatsGiven[0];
             nudMag.Value = mEditorItem.StatsGiven[1];
@@ -373,7 +373,7 @@ public partial class FrmItem : EditorForm
             nudAttackSpeedValue.Value = mEditorItem.AttackSpeedValue;
             nudScaling.Value = mEditorItem.Scaling;
             // This will be removed after conversion to a per-stat editor. Reminder that pre-migration LowRange == HighRange - Day
-            nudStatRangeHigh.Value = mEditorItem.StatRanges?.FirstOrDefault()?.HighRange ?? 0;
+            nudStatRangeHigh.Value = mEditorItem.EquipmentProperties?.StatRanges?.Values.FirstOrDefault()?.HighRange ?? 0;
             chkCanDrop.Checked = Convert.ToBoolean(mEditorItem.CanDrop);
             chkCanBank.Checked = Convert.ToBoolean(mEditorItem.CanBank);
             chkCanGuildBank.Checked = Convert.ToBoolean(mEditorItem.CanGuildBank);
@@ -1053,7 +1053,7 @@ public partial class FrmItem : EditorForm
 
     private void btnAddCooldownGroup_Click(object sender, EventArgs e)
     {
-        var cdGroupName = "";
+        var cdGroupName = string.Empty;
         var result = DarkInputBox.ShowInformation(
             Strings.ItemEditor.CooldownGroupPrompt, Strings.ItemEditor.CooldownGroupTitle, ref cdGroupName,
             DarkDialogButton.OkCancel
@@ -1295,7 +1295,7 @@ public partial class FrmItem : EditorForm
 
     private void btnAddFolder_Click(object sender, EventArgs e)
     {
-        var folderName = "";
+        var folderName = string.Empty;
         var result = DarkInputBox.ShowInformation(
             Strings.ItemEditor.folderprompt, Strings.ItemEditor.foldertitle, ref folderName,
             DarkDialogButton.OkCancel
@@ -1529,7 +1529,7 @@ public partial class FrmItem : EditorForm
         {
             return;
         }
-        
+
         mEditorItem.EventTriggers[SelectedEventTrigger.Value] = EventBase.IdFromList(cmbEventTriggers.SelectedIndex - 1);
 
         PopulateEventTriggerList(lstEventTriggers.SelectedIndex);

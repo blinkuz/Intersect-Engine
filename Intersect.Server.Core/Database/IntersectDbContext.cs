@@ -3,9 +3,12 @@ using System.Data.Common;
 using System.Diagnostics;
 using System.Text;
 using Intersect.Config;
+using Intersect.Framework.Reflection;
 using Intersect.Logging;
-using Intersect.Reflection;
 using Intersect.Server.Core;
+#if DIAGNOSTIC
+using Intersect.Server.Database.PlayerData;
+#endif
 using Intersect.Server.Database.PlayerData.Players;
 using Intersect.Server.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -90,7 +93,7 @@ public abstract partial class IntersectDbContext<TDbContext> : DbContext, IDbCon
 #if DIAGNOSTIC
         if (this is PlayerContext)
         {
-            loggerFactory ??= new IntersectLoggerFactory();
+            loggerFactory ??= new IntersectLoggerFactory(GetType().GetName(qualified: true));
         }
 #endif
 

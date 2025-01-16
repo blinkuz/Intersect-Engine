@@ -1,14 +1,19 @@
 using System.Collections.Concurrent;
+using System.Collections.Immutable;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using Intersect.Enums;
+using Intersect.Framework.Core.GameObjects.Variables;
+using Intersect.Framework.Reflection;
 using Intersect.GameObjects;
 using Intersect.Logging;
 using Intersect.Reflection;
 using Intersect.Security;
+using Intersect.Server.Collections.Indexing;
+using Intersect.Server.Collections.Sorting;
 using Intersect.Server.Core;
 using Intersect.Server.Database.Logging.Entities;
 using Intersect.Server.Database.PlayerData.Api;
@@ -18,16 +23,14 @@ using Intersect.Server.Entities;
 using Intersect.Server.General;
 using Intersect.Server.Localization;
 using Intersect.Server.Networking;
-using Intersect.Server.Web.RestApi.Payloads;
 using Intersect.Utilities;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
-using VariableValue = Intersect.GameObjects.Switches_and_Variables.VariableValue;
+using VariableValue = Intersect.Framework.Core.GameObjects.Variables.VariableValue;
 
 // ReSharper disable UnusedAutoPropertyAccessor.Local
 
 namespace Intersect.Server.Database.PlayerData;
-
 
 [ApiVisibility(ApiVisibility.Restricted | ApiVisibility.Private)]
 public partial class User
@@ -43,7 +46,7 @@ public partial class User
     ///     Variables that have been updated for this account which need to be saved to the db
     /// </summary>
     [JsonIgnore]
-    public ConcurrentDictionary<Guid, UserVariableBase> UpdatedVariables = new();
+    public ConcurrentDictionary<Guid, UserVariableDescriptor> UpdatedVariables = new();
 
     public static int OnlineCount => OnlineUsers.Count;
 
@@ -71,6 +74,8 @@ public partial class User
     }
 
     [NotMapped] public UserRights Power { get; set; }
+
+    [JsonIgnore, NotMapped] public ImmutableList<string> Roles => Power.Roles;
 
     [JsonIgnore] public virtual List<Player> Players { get; set; } = new();
 
@@ -199,7 +204,7 @@ public partial class User
 
                 Players.Add(newCharacter);
 
-                Player.Validate(newCharacter);
+                _ = Player.Validate(newCharacter);
 
                 context.ChangeTracker.DetectChanges();
 
@@ -313,7 +318,7 @@ public partial class User
     private int _saveCounter = 0;
 #endif
 
-    private UserSaveResult Save(PlayerContext? playerContext, bool force = false, bool create = false)
+    public UserSaveResult Save(PlayerContext? playerContext, bool force = false, bool create = false)
     {
         lock (_lastSaveLock)
         {
@@ -529,84 +534,256 @@ public partial class User
         return user;
     }
 
-    public static Tuple<Client, User> Fetch(Guid userId)
-    {
-        var client = Globals.Clients.Find(queryClient => userId == queryClient?.User?.Id);
-
-        return new Tuple<Client, User>(client, client?.User ?? FindById(userId));
-    }
-
-    public static Tuple<Client, User> Fetch(string userName)
-    {
-        var client = Globals.Clients.Find(queryClient => Entity.CompareName(userName, queryClient?.User?.Name));
-
-        return new Tuple<Client, User>(client, client?.User ?? Find(userName));
-    }
-
-    public static User TryLogin(string username, string ptPassword)
-    {
-        var user = FindOnline(username);
-        if (user != null)
-        {
-            var hashedPassword = SaltPasswordHash(ptPassword, user.Salt);
-            if (string.Equals(user.Password, hashedPassword, StringComparison.Ordinal))
-            {
-                return PostLoad(user);
-            }
-        }
-        else
-        {
-            try
-            {
-                using var context = DbInterface.CreatePlayerContext();
-                var salt = GetUserSalt(username);
-                if (!string.IsNullOrWhiteSpace(salt))
-                {
-                    var pass = SaltPasswordHash(ptPassword, salt);
-                    var queriedUser = QueryUserByNameAndPasswordShallow(context, username, pass);
-                    return PostLoad(queriedUser, context);
-                }
-            }
-            catch (Exception exception)
-            {
-                Log.Error(exception);
-            }
-        }
-
-        return null;
-    }
-
-    public static User FindById(Guid userId)
+    public static bool TryFind(LookupKey lookupKey, [NotNullWhen(true)] out User? user)
     {
         using var playerContext = DbInterface.CreatePlayerContext();
-        return FindById(userId, playerContext);
+        return TryFind(lookupKey, playerContext, out user);
     }
 
-    public static User FindById(Guid userId, PlayerContext playerContext)
+    public static bool TryFetch(LookupKey lookupKey, [NotNullWhen(true)] out User? user) => TryFetch(lookupKey, out user, out _);
+
+    public static bool TryFetch(LookupKey lookupKey, [NotNullWhen(true)] out User? user, out Client? client)
     {
-        if (userId == Guid.Empty)
+        if (lookupKey.IsInvalid)
         {
-            return null;
+            user = default;
+            client = default;
+            return false;
         }
 
-        var user = FindOnline(userId);
-
-        if (user != null)
+        if (lookupKey.IsId)
         {
-            return user;
+            client = Globals.Clients.Find(queryClient => lookupKey.Id == queryClient?.User?.Id);
+            user = client?.User ?? FindById(lookupKey.Id);
+            return user != default;
+        }
+
+        client = Globals.Clients.Find(queryClient => Entity.CompareName(lookupKey.Name, queryClient?.User?.Name));
+        user = client?.User ?? Find(lookupKey.Name);
+        return user != default;
+    }
+
+    public bool TryLoadAvatarName(
+        [NotNullWhen(true)] out Player? playerWithAvatar,
+        [NotNullWhen(true)] out string? avatarName,
+        out bool isFace
+    )
+    {
+        foreach (var player in Players)
+        {
+            if (!player.TryLoadAvatarName(out avatarName, out isFace) || string.IsNullOrWhiteSpace(avatarName))
+            {
+                continue;
+            }
+
+            playerWithAvatar = player;
+            return true;
+        }
+
+        avatarName = null;
+        isFace = false;
+        playerWithAvatar = null;
+        return false;
+    }
+
+    public static bool TryAuthenticate(string username, string password, [NotNullWhen(true)] out User? user)
+    {
+        user = FindOnline(username);
+        if (user != default)
+        {
+            var hashedPassword = SaltPasswordHash(password, user.Salt);
+            if (string.Equals(user.Password, hashedPassword, StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            user = default;
+            return false;
         }
 
         try
         {
             using var context = DbInterface.CreatePlayerContext();
-            return QueryUserByIdShallow(playerContext, userId);
+            var salt = GetUserSalt(username);
+            if (!string.IsNullOrWhiteSpace(salt))
+            {
+                var pass = SaltPasswordHash(password, salt);
+                user = QueryUserByNameAndPasswordShallow(context, username, pass);
+            }
         }
-        catch (Exception ex)
+        catch (Exception exception)
         {
-            Log.Error(ex);
-            return null;
+            Log.Error(exception);
+        }
+
+        return user != default;
+    }
+
+    public static bool TryLogin(
+        string username,
+        string ptPassword,
+        [NotNullWhen(true)] out User? user,
+        out LoginFailureReason failureReason
+    )
+    {
+        user = FindOnline(username);
+        failureReason = default;
+
+        if (user != null)
+        {
+            var hashedPassword = SaltPasswordHash(ptPassword, user.Salt);
+            if (!string.Equals(user.Password, hashedPassword, StringComparison.Ordinal))
+            {
+                Log.Debug($"Login to {username} failed due invalid credentials");
+                user = default;
+                failureReason = new LoginFailureReason(LoginFailureType.InvalidCredentials);
+                return false;
+            }
+
+            var result = user.Save();
+            if (result != UserSaveResult.Completed)
+            {
+                Log.Error($"Login to {username} failed due to pre-logged in User save failure: {result}");
+                user = default;
+                failureReason = new LoginFailureReason(LoginFailureType.ServerError);
+                return false;
+            }
+
+            user = PostLoad(user);
+            if (user != default)
+            {
+                return true;
+            }
+
+            Log.Error($"Login to {username} failed due to {nameof(PostLoad)}() returning null.");
+            user = default;
+            failureReason = new LoginFailureReason(LoginFailureType.ServerError);
+            return false;
+
+        }
+
+        try
+        {
+            using var context = DbInterface.CreatePlayerContext();
+            var salt = GetUserSalt(username);
+            if (string.IsNullOrWhiteSpace(salt))
+            {
+                if (UserExists(username))
+                {
+                    Log.Error($"Login to {username} failed because the salt is empty.");
+                    failureReason = new LoginFailureReason(LoginFailureType.ServerError);
+                }
+                else
+                {
+                    failureReason = new LoginFailureReason(LoginFailureType.InvalidCredentials);
+                }
+
+                user = default;
+                return false;
+            }
+
+            var pass = SaltPasswordHash(ptPassword, salt);
+            var queriedUser = QueryUserByNameAndPasswordShallow(context, username, pass);
+            user = PostLoad(queriedUser, context);
+            return user != default;
+        }
+        catch (Exception exception)
+        {
+            Log.Error(exception, $"Login to {username} failed due to an exception");
+            user = default;
+            failureReason = new LoginFailureReason(LoginFailureType.ServerError);
+            return false;
         }
     }
+
+    public static bool TryFind(LookupKey lookupKey, PlayerContext playerContext, [NotNullWhen(true)] out User? user)
+    {
+        if (lookupKey.IsId)
+        {
+            return TryFindById(lookupKey.Id, playerContext, out user);
+        }
+
+        if (lookupKey.IsName)
+        {
+            return TryFindByName(lookupKey.Name, playerContext, out user);
+        }
+
+        throw new InvalidOperationException($"Lookup key has neither an id nor a name: '{lookupKey}'");
+    }
+
+    public static bool TryFindByName(string username, [NotNullWhen(true)] out User? user)
+    {
+        using var playerContext = DbInterface.CreatePlayerContext();
+        return TryFindByName(username, playerContext, out user);
+    }
+
+    public static bool TryFindByName(string username, PlayerContext playerContext, [NotNullWhen(true)] out User? user)
+    {
+        if (string.IsNullOrWhiteSpace(username))
+        {
+            user = default;
+            return false;
+        }
+
+        user = FindOnline(username);
+
+        if (user != null)
+        {
+            return true;
+        }
+
+        try
+        {
+            using var context = DbInterface.CreatePlayerContext();
+            var queriedUser = QueryUserByNameShallow(context, username);
+            if (queriedUser != default)
+            {
+                user = queriedUser;
+                return true;
+            }
+        }
+        catch (Exception exception)
+        {
+            Log.Error(exception, $"Failed to find user by name '{username}'");
+        }
+
+        return false;
+    }
+
+    public static bool TryFindById(Guid userId, [NotNullWhen(true)] out User? user)
+    {
+        using var playerContext = DbInterface.CreatePlayerContext();
+        return TryFindById(userId, playerContext, out user);
+    }
+
+    public static bool TryFindById(Guid userId, PlayerContext playerContext, [NotNullWhen(true)] out User? user)
+    {
+        if (userId == default)
+        {
+            user = default;
+            return false;
+        }
+
+        user = FindOnline(userId);
+
+        if (user != null)
+        {
+            return true;
+        }
+
+        try
+        {
+            user = QueryUserByIdShallow(playerContext, userId);
+        }
+        catch (Exception exception)
+        {
+            Log.Error(exception, $"Failed to find user by id '{userId}'");
+        }
+
+        return user != default;
+    }
+
+    public static User? FindById(Guid userId) => TryFindById(userId, out var user) ? user : default;
 
     public static User Find(string username)
     {
@@ -718,10 +895,8 @@ public partial class User
 
         try
         {
-            using (var context = DbInterface.CreatePlayerContext())
-            {
-                return SaltByName(context, userName);
-            }
+            using var context = DbInterface.CreatePlayerContext();
+            return SaltByName(context, userName);
         }
         catch (Exception ex)
         {
@@ -811,7 +986,7 @@ public partial class User
     /// <returns></returns>
     private Variable CreateVariable(Guid id)
     {
-        if (UserVariableBase.Get(id) == null)
+        if (UserVariableDescriptor.Get(id) == null)
         {
             return null;
         }
@@ -918,7 +1093,7 @@ public partial class User
             return true;
         }
 
-        error = Strings.Account.UnknownError;
+        error = Strings.Account.UnknownErrorWhileSaving;
         return false;
     }
 

@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations.Schema;
+using Intersect.Framework.Core.GameObjects.Variables;
 using Intersect.GameObjects;
 using Intersect.Server.Entities;
 
@@ -18,13 +19,14 @@ public partial class PlayerVariable : Variable, IPlayerOwned
     }
 
     [NotMapped]
-    public string VariableName => PlayerVariableBase.GetName(VariableId);
+    public string VariableName => PlayerVariableDescriptor.GetName(VariableId);
 
     [DatabaseGenerated(DatabaseGeneratedOption.None)]
     [JsonIgnore]
     public Guid PlayerId { get; protected set; }
 
     [JsonIgnore]
+    [ForeignKey(nameof(PlayerId))]
     public virtual Player Player { get; protected set; }
 
 }

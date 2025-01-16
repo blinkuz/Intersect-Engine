@@ -4,6 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Microsoft.EntityFrameworkCore;
+// ReSharper disable MemberCanBePrivate.Global
 
 namespace Intersect.Framework.Reflection;
 
@@ -35,7 +36,7 @@ public static partial class TypeExtensions
                         {
                             if (propertyInfo.PropertyType.IsValueType)
                             {
-                                return new[] { propertyInfo.Name };
+                                return [propertyInfo.Name];
                             }
 
                             if (!propertyInfo.PropertyType.IsClass ||
@@ -52,6 +53,63 @@ public static partial class TypeExtensions
                 }
             )
             .ToArray();
+    }
+
+    public static bool IsOwnProperty(this Type type, PropertyInfo propertyInfo) =>
+        !propertyInfo.IsPropertyDeclaredInBaseTypeOrInterface(type);
+
+    public static bool TryFindProperty(
+        this Type type,
+        string propertyName,
+        [NotNullWhen(true)] out PropertyInfo? propertyInfo
+    ) => TryFindProperty(
+        type,
+        propertyName,
+        BindingFlags.Instance | BindingFlags.Public,
+        out propertyInfo
+    );
+
+    public static bool TryFindProperty(
+        this Type type,
+        string propertyName,
+        BindingFlags bindingFlags,
+        [NotNullWhen(true)] out PropertyInfo? propertyInfo
+    )
+    {
+        try
+        {
+            propertyInfo = type.GetProperty(propertyName, bindingFlags);
+        }
+        catch (AmbiguousMatchException)
+        {
+            var matchingProperties = type.GetProperties(bindingFlags).Where(
+                propertyInfo => string.Equals(propertyName, propertyInfo.Name, StringComparison.Ordinal)
+            ).ToArray();
+            propertyInfo = matchingProperties.FirstOrDefault(propertyInfo => propertyInfo.DeclaringType == type) ??
+                           matchingProperties.First();
+        }
+
+        if (!type.IsInterface || propertyInfo != default)
+        {
+            return propertyInfo != default;
+        }
+
+        if (!bindingFlags.HasFlag(BindingFlags.Public) || !bindingFlags.HasFlag(BindingFlags.Instance))
+        {
+            return propertyInfo != default;
+        }
+
+        var baseInterfaceTypes = type.GetInterfaces();
+        foreach (var baseInterfaceType in baseInterfaceTypes)
+        {
+            propertyInfo = baseInterfaceType.GetProperty(propertyName);
+            if (propertyInfo != default)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public static string QualifiedGenericName(this Type type) =>
@@ -80,6 +138,7 @@ public static partial class TypeExtensions
 
                     var parameter = parameters[index];
 
+                    // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
                     if (parameter == null)
                     {
                         if (constructorParameter.ParameterType.IsValueType)
@@ -129,22 +188,24 @@ public static partial class TypeExtensions
 
     public static bool ExtendedBy<TChildType>(this Type type) => typeof(TChildType).Extends(type);
 
+    public static bool ExtendedBy(this Type type, Type? childType) => childType?.Extends(type) ?? false;
+
     public static Type? FindConcreteType(
         this Type abstractType,
         Func<Type, bool> predicate,
         bool allLoadedAssemblies = false
     )
     {
-        if (!abstractType.IsAbstract && !abstractType.IsInterface)
+        if (abstractType is { IsAbstract: false, IsInterface: false })
         {
             throw new ArgumentException(
-                $"Expected abstract/interface type, received {abstractType.FullName}",
+                string.Format(ReflectionStrings.TypeExtensions_FindConcreteType_ExpectedAbstractOrInterface, abstractType.FullName),
                 nameof(abstractType)
             );
         }
 
         var assembliesToCheck = allLoadedAssemblies ? AppDomain.CurrentDomain.GetAssemblies()
-            : new[] { abstractType.Assembly };
+            : [abstractType.Assembly];
         var validAssembliesToCheck = assembliesToCheck.Where(assembly => !assembly.IsDynamic);
         var allTypes = validAssembliesToCheck.SelectMany(
             assembly =>
@@ -155,12 +216,13 @@ public static partial class TypeExtensions
                 }
                 catch
                 {
-                    return Enumerable.Empty<Type>();
+                    return [];
                 }
             }
         );
 
-        var allConcreteTypes = allTypes.Where(type => !type.IsAbstract && !type.IsInterface && !type.IsGenericType);
+        var allConcreteTypes =
+            allTypes.Where(type => type is { IsAbstract: false, IsInterface: false, IsGenericType: false });
         var allDescendantTypes = allConcreteTypes.Where(type => type.Extends(abstractType));
         var firstPredicateMatch = allDescendantTypes.FirstOrDefault(predicate);
         return firstPredicateMatch;
@@ -188,7 +250,7 @@ public static partial class TypeExtensions
                     }
                 }
             )
-            .SelectMany(type => type.GetProperties())
+            .SelectMany(assemblyType => assemblyType.GetProperties())
             .Select(propertyInfo => propertyInfo.PropertyType)
             .Where(propertyType => propertyType.Extends(type))
             .Distinct()
@@ -196,17 +258,17 @@ public static partial class TypeExtensions
         return derivedTypes;
     }
 
-    public static Type FindGenericType(this Type type) => type.FindGenericType(true);
+    public static Type? FindGenericType(this Type type) => type.FindGenericType(true);
 
     public static Type? FindGenericType(this Type type, bool throwOnNonGeneric) =>
         type.FindGenericType(default, throwOnNonGeneric);
 
-    public static Type? FindGenericType(this Type type, Type genericTypeDefinition, bool throwOnNonGeneric)
+    public static Type? FindGenericType(this Type type, Type? genericTypeDefinition, bool throwOnNonGeneric)
     {
-        if (genericTypeDefinition != null && !genericTypeDefinition.IsGenericTypeDefinition)
+        if (genericTypeDefinition is { IsGenericTypeDefinition: false })
         {
             throw new ArgumentException(
-                $"Not a valid generic type definition: {genericTypeDefinition.FullName}",
+                string.Format(ReflectionStrings.TypeExtensions_FindGenericTypeParameters_NotValidGenericTypeDefinition, genericTypeDefinition.FullName),
                 nameof(genericTypeDefinition)
             );
         }
@@ -248,7 +310,7 @@ public static partial class TypeExtensions
         }
 
         throw new ArgumentException(
-            $"{type.FullName} is not a generic type and does not extend from a generic type.",
+            string.Format(ReflectionStrings.TypeExtensions_FindGenericTypeParameters_NotGeneric, type.FullName),
             nameof(type)
         );
     }
@@ -284,9 +346,19 @@ public static partial class TypeExtensions
         }
 
         throw new ArgumentException(
-            $"{type.FullName} is not a generic type and does not extend from a generic type.",
+            string.Format(ReflectionStrings.TypeExtensions_FindGenericTypeParameters_NotGeneric, type.FullName),
             nameof(type)
         );
+    }
+
+    public static Type[] GetUniqueInterfaces(this Type type)
+    {
+        var interfaceTypes = type.GetInterfaces().ToHashSet();
+        var duplicateInterfaces =
+            interfaceTypes.SelectMany(interfaceType => interfaceType.GetInterfaces()).Distinct().ToArray();
+        var uniqueInterfaces = interfaceTypes.Except(duplicateInterfaces)
+            .Except(type.BaseType?.GetUniqueInterfaces() ?? []).ToArray();
+        return uniqueInterfaces;
     }
 
     public static Type[] FindGenericTypeParameters(this Type type) => type.FindGenericTypeParameters(true);
@@ -296,14 +368,17 @@ public static partial class TypeExtensions
 
     public static Type[] FindGenericTypeParameters(
         this Type type,
-        Type genericTypeDefinition,
+        Type? genericTypeDefinition,
         bool throwOnNonGeneric = true
     )
     {
-        if (genericTypeDefinition != null && !genericTypeDefinition.IsGenericTypeDefinition)
+        if (genericTypeDefinition is { IsGenericTypeDefinition: false })
         {
             throw new ArgumentException(
-                $"Not a valid generic type definition: {genericTypeDefinition.FullName}",
+                string.Format(
+                    ReflectionStrings.TypeExtensions_FindGenericTypeParameters_NotValidGenericTypeDefinition,
+                    genericTypeDefinition.FullName
+                ),
                 nameof(genericTypeDefinition)
             );
         }
@@ -341,18 +416,18 @@ public static partial class TypeExtensions
 
         if (!throwOnNonGeneric)
         {
-            return Array.Empty<Type>();
+            return [];
         }
 
         throw new ArgumentException(
-            $"{type.FullName} is not a generic type and does not extend from a generic type.",
+            string.Format(ReflectionStrings.TypeExtensions_FindGenericTypeParameters_NotGeneric, type.FullName),
             nameof(type)
         );
     }
 
     public static Type[] FindImplementationsIn(this Type incompleteType, IEnumerable<Type> types)
     {
-        if (!incompleteType.IsAbstract && !incompleteType.IsInterface)
+        if (incompleteType is { IsAbstract: false, IsInterface: false })
         {
             throw new ArgumentException(
                 string.Format(ReflectionStrings.ExpectedAnIncompleteTypeButReceivedX, incompleteType.FullName),
@@ -374,6 +449,9 @@ public static partial class TypeExtensions
         Debug.Assert(type != default);
         return type.Assembly.GetName().Name ?? fallbackIfNull;
     }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static string GetName(this Type type, bool qualified = false) => qualified ? type.GetQualifiedName() : type.Name;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static string GetQualifiedName(this Type type) => type.FullName ?? type.Name;

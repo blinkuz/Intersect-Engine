@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using Intersect.Enums;
+using Intersect.Framework.Core.GameObjects.Variables;
 using Intersect.GameObjects;
 using Intersect.GameObjects.Crafting;
 using Intersect.GameObjects.Events;
@@ -19,6 +20,7 @@ using Intersect.Server.Localization;
 using Intersect.Server.Maps;
 using Intersect.Utilities;
 using Newtonsoft.Json;
+
 
 namespace Intersect.Server.Networking;
 
@@ -105,6 +107,22 @@ public static partial class PacketSender
 
             // Send our friend list over so the UI can adjust accordingly without having to open it client-side first.
             PacketSender.SendFriends(player);
+
+            var pendingGuildInvite = player.PendingGuildInvite;
+            // ReSharper disable once InvertIf
+            if (pendingGuildInvite != default)
+            {
+                if (pendingGuildInvite.ToId == default)
+                {
+                    player.PendingGuildInvite = default;
+                    player.Save();
+                }
+                else
+                {
+                    var inviter = Player.Find(pendingGuildInvite.FromId);
+                    SendGuildInvite(player, inviter);
+                }
+            }
         }
     }
 
@@ -1175,7 +1193,7 @@ public static partial class PacketSender
         }
 
         var invItems = new InventoryUpdatePacket[Options.MaxInvItems];
-        if (player.Items.Count < Options.MaxInvItems)
+        if (player.Items.Capacity < Options.Instance.PlayerOpts.MaxInventory)
         {
             throw new InvalidOperationException($"Tried to send inventory before fully loading player {player.Id}");
         }
@@ -1219,8 +1237,8 @@ public static partial class PacketSender
             return;
         }
 
-        var spells = new SpellUpdatePacket[Options.MaxPlayerSkills];
-        for (var i = 0; i < Options.MaxPlayerSkills; i++)
+        var spells = new SpellUpdatePacket[Options.Instance.PlayerOpts.MaxSpells];
+        for (var i = 0; i < Options.Instance.PlayerOpts.MaxSpells; i++)
         {
             spells[i] = new SpellUpdatePacket(i, player.Spells[i].SpellId);
         }
@@ -1801,14 +1819,14 @@ public static partial class PacketSender
 
                 break;
             case GameObjectType.PlayerVariable:
-                foreach (var obj in PlayerVariableBase.Lookup)
+                foreach (var obj in PlayerVariableDescriptor.Lookup)
                 {
                     SendGameObject(client, obj.Value, false, false, packetList);
                 }
 
                 break;
             case GameObjectType.ServerVariable:
-                foreach (var obj in ServerVariableBase.Lookup)
+                foreach (var obj in ServerVariableDescriptor.Lookup)
                 {
                     SendGameObject(client, obj.Value, false, false, packetList);
                 }
@@ -1824,14 +1842,14 @@ public static partial class PacketSender
             case GameObjectType.Time:
                 break;
             case GameObjectType.GuildVariable:
-                foreach (var obj in GuildVariableBase.Lookup)
+                foreach (var obj in GuildVariableDescriptor.Lookup)
                 {
                     SendGameObject(client, obj.Value, false, false, packetList);
                 }
 
                 break;
             case GameObjectType.UserVariable:
-                foreach (var obj in UserVariableBase.Lookup)
+                foreach (var obj in UserVariableDescriptor.Lookup)
                 {
                     SendGameObject(client, obj.Value, false, false, packetList);
                 }
@@ -2047,6 +2065,10 @@ public static partial class PacketSender
         player.SendPacket(new ChatBubblePacket(entityId, type, mapId, text));
     }
 
+    public static void SendChatBubbleToProximity(Player player, Guid entityId, EntityType type, string text, Guid mapId)
+    {
+            SendDataToProximityOnMapInstance(mapId, player.MapInstanceId, new ChatBubblePacket(entityId, type, mapId, text));
+    }
     //QuestOfferPacket
     public static void SendQuestOffer(Player player, Guid questId)
     {
@@ -2240,9 +2262,15 @@ public static partial class PacketSender
     }
 
     //GuildRequestPacket
-    public static void SendGuildInvite(Player player, Player from)
+    public static void SendGuildInvite(Player player, Player? from)
     {
-        player.SendPacket(new GuildInvitePacket(from.Name, from.Guild.Name));
+        var guildName = from?.Guild?.Name;
+        if (guildName == null && from?.GuildId is {} guildId)
+        {
+            _ = Guild.TryGetName(guildId, out guildName);
+        }
+
+        player.SendPacket(new GuildInvitePacket(from?.Name, guildName));
     }
 
     public static void SendFade(Player player, FadeType fadeType, bool waitForCompletion, int speedMs)

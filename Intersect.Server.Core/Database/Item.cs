@@ -5,13 +5,14 @@ using Intersect.Enums;
 using Intersect.GameObjects;
 using Intersect.Network.Packets.Server;
 using Intersect.Server.Database.PlayerData.Players;
+using Intersect.Server.Framework.Items;
 using Newtonsoft.Json;
 
 namespace Intersect.Server.Database;
 
-public class Item
+public class Item : IItem
 {
-    [JsonIgnore][NotMapped] public double DropChance = 100;
+    [JsonIgnore][NotMapped] public double DropChance { get; set; } = 100;
 
     public Item()
     {
@@ -42,8 +43,7 @@ public class Item
         Bag = bag;
         Properties = properties ?? new ItemProperties();
 
-        var descriptor = ItemBase.Get(ItemId);
-        if (descriptor == null || properties != null)
+        if (!ItemBase.TryGet(itemId, out var descriptor) || properties != null)
         {
             return;
         }
@@ -81,7 +81,7 @@ public class Item
 
     [NotMapped] public ItemProperties Properties { get; set; }
 
-    [Column("ItemProperties")]
+    [Column(nameof(ItemProperties))]
     [JsonIgnore]
     public string ItemPropertiesJson
     {
@@ -90,7 +90,7 @@ public class Item
             Properties = JsonConvert.DeserializeObject<ItemProperties>(value ?? string.Empty) ?? new ItemProperties();
     }
 
-    [JsonIgnore][NotMapped] public ItemBase Descriptor => ItemBase.Get(ItemId);
+    [JsonIgnore, NotMapped] public ItemBase Descriptor => ItemBase.Get(ItemId);
 
     public static Item None => new();
 
@@ -396,23 +396,29 @@ public class Item
             var descriptor = Descriptor;
             if (descriptor?.ItemType == ItemType.Bag)
             {
-                bag = Bag.GetBag(BagId ?? Guid.Empty);
-                bag?.ValidateSlots();
-                Bag = bag;
-            }
-        }
-        else
-        {
-            // Remove any items from this bag that have been removed from the game
-            foreach (var slot in bag.Slots)
-            {
-                if (ItemBase.Get(slot.ItemId) == default)
+                if (!Bag.TryGetBag(BagId ?? default, out bag))
                 {
-                    slot.Set(None);
+                    return false;
                 }
+
+                Bag = bag;
+                return true;
             }
+
+            return false;
         }
 
-        return default != bag;
+        // Remove any items from this bag that have been removed from the game
+        foreach (var slot in bag.Slots)
+        {
+            if (ItemBase.TryGet(slot.ItemId, out _))
+            {
+                continue;
+            }
+
+            slot.Set(None);
+        }
+
+        return true;
     }
 }

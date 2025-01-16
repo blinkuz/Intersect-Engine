@@ -1,5 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations.Schema;
-
+using Intersect.Collections.Slotting;
 using Newtonsoft.Json;
 
 // ReSharper disable UnusedAutoPropertyAccessor.Local
@@ -24,11 +24,13 @@ public partial class BagSlot : Item, ISlot
     public Guid Id { get; private set; }
 
     [JsonIgnore]
+    public bool IsEmpty => ItemId == default;
+
+    [JsonIgnore]
     public Guid ParentBagId { get; private set; }
 
     [JsonIgnore]
     public virtual Bag ParentBag { get; private set; }
 
     public int Slot { get; private set; }
-
 }

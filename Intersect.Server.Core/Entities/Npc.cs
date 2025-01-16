@@ -8,6 +8,8 @@ using Intersect.Server.Database.PlayerData.Players;
 using Intersect.Server.Entities.Combat;
 using Intersect.Server.Entities.Events;
 using Intersect.Server.Entities.Pathfinding;
+using Intersect.Server.Framework.Entities;
+using Intersect.Server.Framework.Items;
 using Intersect.Server.Maps;
 using Intersect.Server.Networking;
 using Intersect.Utilities;
@@ -137,8 +139,8 @@ public partial class Npc : Entity
 
         for (var i = 0; i < Enum.GetValues<Vital>().Length; i++)
         {
-            SetMaxVital(i, myBase.MaxVital[i]);
-            SetVital(i, myBase.MaxVital[i]);
+            SetMaxVital(i, myBase.MaxVitals[i]);
+            SetVital(i, myBase.MaxVitals[i]);
         }
 
         Range = (byte)myBase.SightRange;
@@ -188,7 +190,7 @@ public partial class Npc : Entity
     }
 
     //Targeting
-    public void AssignTarget(Entity en)
+    public void AssignTarget(Entity? en)
     {
         var oldTarget = Target;
 
@@ -197,16 +199,7 @@ public partial class Npc : Entity
         if (AggroCenterMap != null && pathTarget != null &&
             pathTarget.TargetMapId == AggroCenterMap.Id && pathTarget.TargetX == AggroCenterX && pathTarget.TargetY == AggroCenterY)
         {
-            if (en == null)
-            {
-                return;
-
-            }
-            else
-            {
-                return;
-
-            }
+            return;
         }
 
         //Why are we doing all of this logic if we are assigning a target that we already have?
@@ -227,7 +220,7 @@ public partial class Npc : Entity
 
             if (en is Projectile projectile)
             {
-                if (projectile.Owner != this && !TargetHasStealth(projectile))
+                if (projectile.Owner != this && !projectile.HasStatusEffect(SpellEffect.Stealth))
                 {
                     Target = projectile.Owner;
                 }
@@ -244,21 +237,17 @@ public partial class Npc : Entity
                         }
                     }
                 }
-
-                if (en is Player)
+                else if (en is Player player)
                 {
                     //TODO Make sure that the npc can target the player
-                    if (this != en && !TargetHasStealth(en))
+                    if (CanTarget(player))
                     {
-                        Target = en;
+                        Target = player;
                     }
                 }
-                else
+                else if (CanTarget(en))
                 {
-                    if (this != en && !TargetHasStealth(en))
-                    {
-                        Target = en;
-                    }
+                    Target = en;
                 }
             }
 
@@ -329,8 +318,20 @@ public partial class Npc : Entity
             }
         }
 
-        if (TargetHasStealth(entity))
+        if (entity.HasStatusEffect(SpellEffect.Stealth))
         {
+            // if spell is area or projectile, we can attack without knowing the target location
+            if (spell?.Combat is { TargetType: SpellTargetType.AoE or SpellTargetType.Projectile })
+            {
+                return true;
+            }
+
+            // this is for handle aoe when target is single target, we can hit the target if it's in the radius
+            if (spell?.Combat.TargetType == SpellTargetType.Single && spell.Combat.HitRadius > 0 && InRangeOf(entity, spell.Combat.HitRadius))
+            {
+                return true;
+            }
+
             return false;
         }
 
@@ -667,6 +668,12 @@ public partial class Npc : Entity
             Log.Warn($"Combat data missing for {spellBase.Id}.");
         }
 
+        //TODO: try cast spell to find out hidden targets?
+        // if (target.HasStatusEffect(SpellEffect.Stealth) /* && spellBase.Combat.TargetType != SpellTargetType.AoE*/)
+        // {
+        //     return;
+        // }
+
         // Check if we are even allowed to cast this spell.
         if (!CanCastSpell(spellBase, target, true, out _))
         {
@@ -773,11 +780,12 @@ public partial class Npc : Entity
             {
                 var curMapLink = MapId;
                 base.Update(timeMs);
+
                 var tempTarget = Target;
 
                 foreach (var status in CachedStatuses)
                 {
-                    if (status.Type == SpellEffect.Stun || status.Type == SpellEffect.Sleep)
+                    if (status.Type is SpellEffect.Stun or SpellEffect.Sleep)
                     {
                         return;
                     }
@@ -792,6 +800,12 @@ public partial class Npc : Entity
                     var targetY = 0;
                     var targetZ = 0;
 
+                    if (tempTarget != null && (tempTarget.IsDead() || !InRangeOf(tempTarget, Options.MapWidth * 2) || !CanTarget(tempTarget)))
+                    {
+                        _ = TryFindNewTarget(Timing.Global.Milliseconds, tempTarget.Id, !CanTarget(tempTarget));
+                        tempTarget = Target;
+                    }
+
                     //TODO Clear Damage Map if out of combat (target is null and combat timer is to the point that regen has started)
                     if (tempTarget != null && (Options.Instance.NpcOpts.ResetIfCombatTimerExceeded && Timing.Global.Milliseconds > CombatTimer))
                     {
@@ -801,6 +815,7 @@ public partial class Npc : Entity
                             {
                                 PacketSender.SendNpcAggressionToProximity(this);
                             }
+
                             return;
                         }
                     }
@@ -834,17 +849,10 @@ public partial class Npc : Entity
                                 mResetDistance = 0;
                             }
                         }
-
-                    }
-
-                    if (tempTarget != null && (tempTarget.IsDead() || !InRangeOf(tempTarget, Options.MapWidth * 2)))
-                    {
-                        TryFindNewTarget(Timing.Global.Milliseconds, tempTarget.Id);
-                        tempTarget = Target;
                     }
 
                     //Check if there is a target, if so, run their ass down.
-                    if (tempTarget != null)
+                    if (tempTarget != null && CanTarget(tempTarget))
                     {
                         if (!tempTarget.IsDead() && CanAttack(tempTarget, null))
                         {
@@ -852,16 +860,6 @@ public partial class Npc : Entity
                             targetX = tempTarget.X;
                             targetY = tempTarget.Y;
                             targetZ = tempTarget.Z;
-                            foreach (var targetStatus in tempTarget.CachedStatuses)
-                            {
-                                if (targetStatus.Type == SpellEffect.Stealth)
-                                {
-                                    targetMap = Guid.Empty;
-                                    targetX = 0;
-                                    targetY = 0;
-                                    targetZ = 0;
-                                }
-                            }
                         }
                     }
                     else //Find a target if able
@@ -908,7 +906,7 @@ public partial class Npc : Entity
                         {
                             mPathFinder.SetTarget(new PathfinderTarget(targetMap, targetX, targetY, targetZ));
 
-                            if (tempTarget != Target)
+                            if (tempTarget != null && tempTarget != Target)
                             {
                                 tempTarget = Target;
                             }
@@ -927,57 +925,36 @@ public partial class Npc : Entity
                         (mResetting && GetDistanceTo(AggroCenterMap, AggroCenterX, AggroCenterY) != 0)
                         )
                         {
-                            switch (mPathFinder.Update(timeMs))
+                            var pathFinderResult = mPathFinder.Update(timeMs);
+                            switch (pathFinderResult.Type)
                             {
-                                case PathfinderResult.Success:
-
-                                    var dir = mPathFinder.GetMove();
-                                    if (dir > Direction.None)
+                                case PathfinderResultType.Success:
+                                    var nextPathDirection = mPathFinder.GetMove();
+                                    if (nextPathDirection > Direction.None)
                                     {
                                         if (fleeing)
                                         {
-                                            switch (dir)
+                                            nextPathDirection = nextPathDirection switch
                                             {
-                                                case Direction.Up:
-                                                    dir = Direction.Down;
-
-                                                    break;
-                                                case Direction.Down:
-                                                    dir = Direction.Up;
-
-                                                    break;
-                                                case Direction.Left:
-                                                    dir = Direction.Right;
-
-                                                    break;
-                                                case Direction.Right:
-                                                    dir = Direction.Left;
-
-                                                    break;
-                                                case Direction.UpLeft:
-                                                    dir = Direction.UpRight;
-
-                                                    break;
-                                                case Direction.UpRight:
-                                                    dir = Direction.UpLeft;
-
-                                                    break;
-                                                case Direction.DownRight:
-                                                    dir = Direction.DownLeft;
-
-                                                    break;
-                                                case Direction.DownLeft:
-                                                    dir = Direction.DownRight;
-
-                                                    break;
-                                            }
+                                                Direction.Up => Direction.Down,
+                                                Direction.Down => Direction.Up,
+                                                Direction.Left => Direction.Right,
+                                                Direction.Right => Direction.Left,
+                                                Direction.UpLeft => Direction.UpRight,
+                                                Direction.UpRight => Direction.UpLeft,
+                                                Direction.DownRight => Direction.DownLeft,
+                                                Direction.DownLeft => Direction.DownRight,
+                                                _ => nextPathDirection,
+                                            };
                                         }
 
-                                        if (CanMoveInDirection(dir, out var blockerType, out _) || blockerType == MovementBlockerType.Slide)
+                                        if (CanMoveInDirection(nextPathDirection, out var blockerType, out var blockingEntityType, out var blockingEntity) || blockerType == MovementBlockerType.Slide)
                                         {
                                             //check if NPC is snared or stunned
+                                            // ReSharper disable once LoopCanBeConvertedToQuery
                                             foreach (var status in CachedStatuses)
                                             {
+                                                // ReSharper disable once MergeIntoLogicalPattern
                                                 if (status.Type == SpellEffect.Stun ||
                                                     status.Type == SpellEffect.Snare ||
                                                     status.Type == SpellEffect.Sleep)
@@ -986,11 +963,30 @@ public partial class Npc : Entity
                                                 }
                                             }
 
-                                            Move(dir, null);
+                                            Move(nextPathDirection, null);
                                         }
                                         else
                                         {
-                                            mPathFinder.PathFailed(timeMs);
+                                            var blockerAttacked = false;
+                                            if (!fleeing && blockerType == MovementBlockerType.Entity &&
+                                                blockingEntityType == EntityType.Player)
+                                            {
+                                                if (!(blockingEntity?.IsDisposed ?? true))
+                                                {
+                                                    if (CanAttack(blockingEntity, default))
+                                                    {
+                                                        Log.Debug($"Trying to attack {blockingEntity.Name} because they're blocking the path to {Target.Name}");
+                                                        ChangeDir(nextPathDirection);
+                                                        TryAttack(blockingEntity);
+                                                        blockerAttacked = true;
+                                                    }
+                                                }
+                                            }
+
+                                            if (!blockerAttacked)
+                                            {
+                                                mPathFinder.PathFailed(timeMs);
+                                            }
                                         }
 
                                         // Are we resetting?
@@ -1011,30 +1007,25 @@ public partial class Npc : Entity
                                             }
                                         }
                                     }
-
                                     break;
-                                case PathfinderResult.OutOfRange:
+
+                                case PathfinderResultType.OutOfRange:
+                                case PathfinderResultType.NoPathToTarget:
                                     TryFindNewTarget(timeMs, tempTarget?.Id ?? Guid.Empty, true);
                                     tempTarget = Target;
                                     targetMap = Guid.Empty;
-
                                     break;
-                                case PathfinderResult.NoPathToTarget:
-                                    TryFindNewTarget(timeMs, tempTarget?.Id ?? Guid.Empty, true);
-                                    tempTarget = Target;
-                                    targetMap = Guid.Empty;
 
-                                    break;
-                                case PathfinderResult.Failure:
+                                case PathfinderResultType.Failure:
                                     targetMap = Guid.Empty;
                                     TryFindNewTarget(timeMs, tempTarget?.Id ?? Guid.Empty, true);
                                     tempTarget = Target;
-
                                     break;
-                                case PathfinderResult.Wait:
+
+                                case PathfinderResultType.Wait:
                                     targetMap = Guid.Empty;
-
                                     break;
+
                                 default:
                                     throw new ArgumentOutOfRangeException();
                             }
@@ -1383,11 +1374,11 @@ public partial class Npc : Entity
         return false;
     }
 
-    public void TryFindNewTarget(long timeMs, Guid avoidId = new Guid(), bool ignoreTimer = false, Entity attackedBy = null)
+    public bool TryFindNewTarget(long timeMs, Guid avoidId = new(), bool ignoreTimer = false, Entity attackedBy = null)
     {
         if (!ignoreTimer && FindTargetWaitTime > timeMs)
         {
-            return;
+            return false;
         }
 
         // Are we resetting? If so, do not allow for a new target.
@@ -1397,16 +1388,14 @@ public partial class Npc : Entity
         {
             if (!Options.Instance.NpcOpts.AllowEngagingWhileResetting || attackedBy == null || attackedBy.GetDistanceTo(AggroCenterMap, AggroCenterX, AggroCenterY) > Math.Max(Options.Instance.NpcOpts.ResetRadius, Base.ResetRadius))
             {
-                return;
+                return false;
             }
-            else
-            {
-                //We're resetting and just got attacked, and we allow reengagement.. let's stop resetting and fight!
-                mPathFinder?.SetTarget(null);
-                mResetting = false;
-                AssignTarget(attackedBy);
-                return;
-            }
+
+            //We're resetting and just got attacked, and we allow reengagement.. let's stop resetting and fight!
+            mPathFinder?.SetTarget(null);
+            mResetting = false;
+            AssignTarget(attackedBy);
+            return true;
         }
 
         var possibleTargets = new List<Entity>();
@@ -1543,9 +1532,12 @@ public partial class Npc : Entity
             {
                 CheckForResetLocation(true);
             }
+
+            AssignTarget(null);
         }
 
         FindTargetWaitTime = timeMs + FindTargetDelay;
+        return Target != null;
     }
 
     public override void ProcessRegen()
@@ -1670,6 +1662,16 @@ public partial class Npc : Entity
         pkt.Aggression = GetAggression(forPlayer);
 
         return pkt;
+    }
+
+    protected override EntityItemSource? AsItemSource()
+    {
+        return new EntityItemSource
+        {
+            EntityType = GetEntityType(),
+            EntityReference = new WeakReference<IEntity>(this),
+            Id = this.Base.Id
+        };
     }
 
 }

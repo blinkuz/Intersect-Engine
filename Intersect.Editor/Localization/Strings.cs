@@ -1,6 +1,7 @@
 using System.Reflection;
 
 using Intersect.Enums;
+using Intersect.Framework.Core.GameObjects.Variables;
 using Intersect.GameObjects;
 using Intersect.GameObjects.Events;
 using Intersect.Localization;
@@ -67,26 +68,26 @@ public static partial class Strings
         if (condition.VariableType == VariableType.PlayerVariable)
         {
             return EventConditionDesc.playervariable.ToString(
-                PlayerVariableBase.GetName(condition.VariableId), pVar
+                PlayerVariableDescriptor.GetName(condition.VariableId), pVar
             );
         }
         else if (condition.VariableType == VariableType.ServerVariable)
         {
             return EventConditionDesc.globalvariable.ToString(
-                ServerVariableBase.GetName(condition.VariableId), pVar
+                ServerVariableDescriptor.GetName(condition.VariableId), pVar
             );
         }
         else if (condition.VariableType == VariableType.GuildVariable)
         {
             return EventConditionDesc.guildvariable.ToString(
-                GuildVariableBase.GetName(condition.VariableId), pVar
+                GuildVariableDescriptor.GetName(condition.VariableId), pVar
             );
         }
         else if (condition.VariableType == VariableType.UserVariable)
         {
             return EventConditionDesc.UserVariable.ToString(
                 Strings.GameObjectStrings.UserVariable,
-                UserVariableBase.GetName(condition.VariableId),
+                UserVariableDescriptor.GetName(condition.VariableId),
                 pVar
             );
         }
@@ -102,13 +103,13 @@ public static partial class Strings
             switch (condition.VariableType)
             {
                 case VariableType.PlayerVariable:
-                    amount = string.Format(@"({0}: {1})", EventConditional.playervariable, PlayerVariableBase.GetName(condition.VariableId));
+                    amount = string.Format(@"({0}: {1})", EventConditional.playervariable, PlayerVariableDescriptor.GetName(condition.VariableId));
                     break;
                 case VariableType.ServerVariable:
-                    amount = string.Format(@"({0}: {1})", EventConditional.globalvariable, ServerVariableBase.GetName(condition.VariableId));
+                    amount = string.Format(@"({0}: {1})", EventConditional.globalvariable, ServerVariableDescriptor.GetName(condition.VariableId));
                     break;
                 case VariableType.GuildVariable:
-                    amount = string.Format(@"({0}: {1})", EventConditional.guildvariable, GuildVariableBase.GetName(condition.VariableId));
+                    amount = string.Format(@"({0}: {1})", EventConditional.guildvariable, GuildVariableDescriptor.GetName(condition.VariableId));
                     break;
             }
 
@@ -137,7 +138,7 @@ public static partial class Strings
 
     public static string GetEventConditionalDesc(LevelOrStatCondition condition)
     {
-        var pLvl = "";
+        var pLvl = string.Empty;
         switch (condition.Comparator)
         {
             case VariableComparator.Equal:
@@ -166,7 +167,7 @@ public static partial class Strings
                 break;
         }
 
-        var lvlorstat = "";
+        var lvlorstat = string.Empty;
         if (condition.ComparingLevel)
         {
             lvlorstat = EventConditionDesc.level;
@@ -216,8 +217,8 @@ public static partial class Strings
             timeRanges.Add(addRange);
         }
 
-        var time1 = "";
-        var time2 = "";
+        var time1 = string.Empty;
+        var time2 = string.Empty;
         if (condition.Ranges[0] > -1 && condition.Ranges[0] < timeRanges.Count)
         {
             time1 = timeRanges[condition.Ranges[0]];
@@ -331,13 +332,13 @@ public static partial class Strings
             switch (condition.VariableType)
             {
                 case VariableType.PlayerVariable:
-                    amount = string.Format(@"({0}: {1})", EventConditional.playervariable, PlayerVariableBase.GetName(condition.VariableId));
+                    amount = string.Format(@"({0}: {1})", EventConditional.playervariable, PlayerVariableDescriptor.GetName(condition.VariableId));
                     break;
                 case VariableType.ServerVariable:
-                    amount = string.Format(@"({0}: {1})", EventConditional.globalvariable, ServerVariableBase.GetName(condition.VariableId));
+                    amount = string.Format(@"({0}: {1})", EventConditional.globalvariable, ServerVariableDescriptor.GetName(condition.VariableId));
                     break;
                 case VariableType.GuildVariable:
-                    amount = string.Format(@"({0}: {1})", EventConditional.guildvariable, GuildVariableBase.GetName(condition.VariableId));
+                    amount = string.Format(@"({0}: {1})", EventConditional.guildvariable, GuildVariableDescriptor.GetName(condition.VariableId));
                     break;
             }
 
@@ -366,8 +367,8 @@ public static partial class Strings
 
     public static string GetVariableComparisonString(BooleanVariableComparison comparison)
     {
-        var value = "";
-        var pVar = "";
+        var value = string.Empty;
+        var pVar = string.Empty;
 
         if (comparison.CompareVariableId == Guid.Empty)
         {
@@ -378,19 +379,19 @@ public static partial class Strings
             if (comparison.CompareVariableType == VariableType.PlayerVariable)
             {
                 value = EventConditionDesc.playervariablevalue.ToString(
-                    PlayerVariableBase.GetName(comparison.CompareVariableId)
+                    PlayerVariableDescriptor.GetName(comparison.CompareVariableId)
                 );
             }
             else if (comparison.CompareVariableType == VariableType.ServerVariable)
             {
                 value = EventConditionDesc.globalvariablevalue.ToString(
-                    ServerVariableBase.GetName(comparison.CompareVariableId)
+                    ServerVariableDescriptor.GetName(comparison.CompareVariableId)
                 );
             }
             else if (comparison.CompareVariableType == VariableType.GuildVariable)
             {
                 value = EventConditionDesc.guildvariablevalue.ToString(
-                    GuildVariableBase.GetName(comparison.CompareVariableId)
+                    GuildVariableDescriptor.GetName(comparison.CompareVariableId)
                 );
             }
         }
@@ -409,8 +410,8 @@ public static partial class Strings
 
     public static string GetVariableComparisonString(IntegerVariableComparison comparison)
     {
-        var value = "";
-        var pVar = "";
+        var value = string.Empty;
+        var pVar = string.Empty;
 
         if (comparison.CompareVariableId == Guid.Empty)
         {
@@ -426,19 +427,19 @@ public static partial class Strings
             if (comparison.CompareVariableType == VariableType.PlayerVariable)
             {
                 value = EventConditionDesc.playervariablevalue.ToString(
-                    PlayerVariableBase.GetName(comparison.CompareVariableId)
+                    PlayerVariableDescriptor.GetName(comparison.CompareVariableId)
                 );
             }
             else if (comparison.CompareVariableType == VariableType.ServerVariable)
             {
                 value = EventConditionDesc.globalvariablevalue.ToString(
-                    ServerVariableBase.GetName(comparison.CompareVariableId)
+                    ServerVariableDescriptor.GetName(comparison.CompareVariableId)
                 );
             }
             else if (comparison.CompareVariableType == VariableType.GuildVariable)
             {
                 value = EventConditionDesc.guildvariablevalue.ToString(
-                    GuildVariableBase.GetName(comparison.CompareVariableId)
+                    GuildVariableDescriptor.GetName(comparison.CompareVariableId)
                 );
             }
         }
@@ -494,12 +495,12 @@ public static partial class Strings
             return;
         }
 
-        for (var rarityCode = 0; rarityCode < Intersect.Options.Instance.Items.RarityTiers.Count; rarityCode++)
+        var keyedRarityTiers = Intersect.Options.Instance.Items.RarityTiers.Select((rarityName, rarity) => (rarity, rarityName));
+        foreach (var (rarity, rarityName) in keyedRarityTiers)
         {
-            var rarityName = Intersect.Options.Instance.Items.RarityTiers[rarityCode];
             if (!ItemEditor.rarity.ContainsKey(rarityName))
             {
-                ItemEditor.rarity[rarityName] = $"{rarityCode}:{rarityName}";
+                ItemEditor.rarity[rarityName] = $"{rarity}:{rarityName}";
             }
         }
     }
@@ -825,7 +826,7 @@ public static partial class Strings
         public static LocalizedString sound = @"Sound:";
 
         public static LocalizedString soundcomplete = @"Complete Sound Playback After Anim Dies";
-        
+
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
         public static LocalizedString LoopSoundDuringPreview = @"Loop sound during preview";
 
@@ -848,18 +849,18 @@ public static partial class Strings
     {
         public static Dictionary<int, LocalizedString> AttributeTypes = new Dictionary<int, LocalizedString>
         {
-            {(int) MapAttribute.Animation, @"Map Animation" },
-            {(int) MapAttribute.Blocked, @"Blocked" },
-            {(int) MapAttribute.Critter, @"Critter" },
-            {(int) MapAttribute.GrappleStone, @"Grapple Stone" },
-            {(int) MapAttribute.Item, @"Item Spawn" },
-            {(int) MapAttribute.NpcAvoid, @"Npc Avoid" },
-            {(int) MapAttribute.Resource, @"Resource Spawn" },
-            {(int) MapAttribute.Slide, @"Slide" },
-            {(int) MapAttribute.Sound, @"Map Sound" },
-            {(int) MapAttribute.Walkable, @"Walkable" },
-            {(int) MapAttribute.Warp, @"Warp" },
-            {(int) MapAttribute.ZDimension, @"Z-Dimension" },
+            {(int) MapAttributeType.Animation, @"Map Animation" },
+            {(int) MapAttributeType.Blocked, @"Blocked" },
+            {(int) MapAttributeType.Critter, @"Critter" },
+            {(int) MapAttributeType.GrappleStone, @"Grapple Stone" },
+            {(int) MapAttributeType.Item, @"Item Spawn" },
+            {(int) MapAttributeType.NpcAvoid, @"Npc Avoid" },
+            {(int) MapAttributeType.Resource, @"Resource Spawn" },
+            {(int) MapAttributeType.Slide, @"Slide" },
+            {(int) MapAttributeType.Sound, @"Map Sound" },
+            {(int) MapAttributeType.Walkable, @"Walkable" },
+            {(int) MapAttributeType.Warp, @"Warp" },
+            {(int) MapAttributeType.ZDimension, @"Z-Dimension" },
         };
 
         public static string FormatSpawnLevel(int level)
@@ -1761,7 +1762,7 @@ Tick timer saved in server config.json.";
         public static LocalizedString okay = @"Ok";
 
         public static LocalizedString RemoveBound = @"Remove Bound Spell ?";
-        
+
         public static LocalizedString spell = @"Spell: ";
 
         public static LocalizedString title = @"Change Player Spells";
@@ -1863,6 +1864,8 @@ Tick timer saved in server config.json.";
         public static LocalizedString title = @"Add Chatbox Text";
 
         public static LocalizedString ShowChatBubble = @"Show Chat Bubble";
+
+        public static LocalizedString ShowChatBubbleInProximity = @"Show Chat Bubble in Proximity";
 
     }
 
@@ -4678,7 +4681,7 @@ Tick timer saved in server config.json.";
 
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
         public static LocalizedString TextureSize = @"Max Texture Pack Size (Resolution):";
-        
+
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
         public static LocalizedString CursorSprites = @"Enable cursor sprites for map tools.";
     }

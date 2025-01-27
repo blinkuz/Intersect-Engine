@@ -1,12 +1,10 @@
 using System.Reflection;
-
 using Intersect.Enums;
 using Intersect.Framework.Core.GameObjects.Variables;
 using Intersect.GameObjects;
 using Intersect.GameObjects.Events;
 using Intersect.Localization;
-using Intersect.Logging;
-
+using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -550,7 +548,7 @@ public static partial class Strings
                             var jsonString = (string)serializedValue;
                             if (jsonString == default)
                             {
-                                Log.Warn($"{groupType.Name}.{fieldInfo.Name} is null.");
+                                Intersect.Core.ApplicationContext.Context.Value?.Logger.LogWarning($"{groupType.Name}.{fieldInfo.Name} is null.");
                                 missingStrings.Add($"{groupType.Name}.{fieldInfo.Name} (string)");
                                 serializedGroup[fieldInfo.Name] = (string)localizedString;
                             }
@@ -573,7 +571,12 @@ public static partial class Strings
                                 var fieldType = fieldInfo.FieldType;
                                 if (!fieldType.IsGenericType || typeof(Dictionary<,>) != fieldType.GetGenericTypeDefinition())
                                 {
-                                    Log.Error(new NotSupportedException($"Unsupported localization type for {groupType.Name}.{fieldInfo.Name}: {fieldInfo.FieldType.FullName}"));
+                                    Intersect.Core.ApplicationContext.Context.Value?.Logger.LogError(
+                                        new NotSupportedException(
+                                            $"Unsupported localization type for {groupType.Name}.{fieldInfo.Name}: {fieldInfo.FieldType.FullName}"
+                                        ),
+                                        $"Unsupported localization type for {groupType.Name}.{fieldInfo.Name}: {fieldInfo.FieldType.FullName}"
+                                    );
                                     break;
                                 }
 
@@ -581,7 +584,12 @@ public static partial class Strings
                                 var localizedParameterType = parameters.Last();
                                 if (localizedParameterType != typeof(LocalizedString))
                                 {
-                                    Log.Error(new NotSupportedException($"Unsupported localization dictionary value type for {groupType.Name}.{fieldInfo.Name}: {localizedParameterType.FullName}"));
+                                    Intersect.Core.ApplicationContext.Context.Value?.Logger.LogError(
+                                        new NotSupportedException(
+                                            $"Unsupported localization dictionary value type for {groupType.Name}.{fieldInfo.Name}: {localizedParameterType.FullName}"
+                                        ),
+                                        $"Unsupported localization dictionary value type for {groupType.Name}.{fieldInfo.Name}: {localizedParameterType.FullName}"
+                                    );
                                     break;
                                 }
 
@@ -603,13 +611,13 @@ public static partial class Strings
 
             if (missingStrings.Count > 0)
             {
-                Log.Warn($"Missing strings, overwriting strings file:\n\t{string.Join(",\n\t", missingStrings)}");
+                Intersect.Core.ApplicationContext.Context.Value?.Logger.LogWarning($"Missing strings, overwriting strings file:\n\t{string.Join(",\n\t", missingStrings)}");
                 SaveSerialized(serialized);
             }
         }
         catch (Exception exception)
         {
-            Log.Warn(exception);
+            Intersect.Core.ApplicationContext.Context.Value?.Logger.LogWarning(exception, "Load error");
             Save();
         }
 
@@ -2792,6 +2800,7 @@ Tick timer saved in server config.json.";
             {16, @"Inventory Changed"},
             {17, @"Map Changed"},
             {18, @"User Variable Changed"},
+            {19, @"Level Down"},
         };
 
         public static LocalizedString conditions = @"Conditions";
@@ -2939,20 +2948,17 @@ Tick timer saved in server config.json.";
 
     public partial struct EventGiveExperience
     {
-
-        public static LocalizedString cancel = @"Cancel";
-
-        public static LocalizedString label = @"Give Experience:";
-
-        public static LocalizedString okay = @"Ok";
-
-        public static LocalizedString title = @"Give Experience";
-
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
         public static LocalizedString AmountType = @"Amount Type";
 
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
-        public static LocalizedString Variable = @"Variable";
+        public static LocalizedString EnableLosingLevels = @"Enable losing levels?";
+
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public static LocalizedString GuildVariable = @"Guild Variable";
+
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public static LocalizedString Label = @"Give Experience:";
 
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
         public static LocalizedString Manual = @"Manual";
@@ -2964,8 +2970,10 @@ Tick timer saved in server config.json.";
         public static LocalizedString ServerVariable = @"Global Variable";
 
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
-        public static LocalizedString GuildVariable = @"Guild Variable";
+        public static LocalizedString Title = @"Give Experience";
 
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public static LocalizedString Variable = @"Variable";
     }
 
     public partial struct EventGotoLabel
@@ -4457,7 +4465,9 @@ Tick timer saved in server config.json.";
 
         public static LocalizedString dropitem = @"Item:";
 
-        public static LocalizedString dropamount = @"Amount:";
+        public static LocalizedString DropMaxAmount = @"Max Amount:";
+
+        public static LocalizedString DropMinAmount = @"Min Amount:";
 
         public static LocalizedString dropchance = @"Chance (%):";
 
@@ -4465,7 +4475,7 @@ Tick timer saved in server config.json.";
 
         public static LocalizedString dropremove = @"Remove";
 
-        public static LocalizedString dropdisplay = @"{00} x{01} - {02}%";
+        public static LocalizedString dropdisplay = @"{00} x{01}-{02} | {03}%";
 
         public static LocalizedString enabled = @"Enabled?";
 
@@ -4932,7 +4942,9 @@ Tick timer saved in server config.json.";
 
         public static LocalizedString dropitem = @"Item:";
 
-        public static LocalizedString dropamount = @"Amount:";
+        public static LocalizedString DropMaxAmount = @"Max Amount:";
+
+        public static LocalizedString DropMinAmount = @"Min Amount:";
 
         public static LocalizedString dropchance = @"Chance (%):";
 
@@ -4940,7 +4952,7 @@ Tick timer saved in server config.json.";
 
         public static LocalizedString dropremove = @"Remove";
 
-        public static LocalizedString dropdisplay = @"{00} x{01} - {02}%";
+        public static LocalizedString dropdisplay = @"{00} x{01}-{02} | {03}%";
 
         public static LocalizedString exhaustedgraphic = @"Exhausted Graphic:";
 

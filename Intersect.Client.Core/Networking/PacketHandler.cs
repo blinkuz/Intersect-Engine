@@ -16,7 +16,6 @@ using Intersect.Enums;
 using Intersect.GameObjects;
 using Intersect.GameObjects.Maps;
 using Intersect.GameObjects.Maps.MapList;
-using Intersect.Logging;
 using Intersect.Network;
 using Intersect.Network.Packets;
 using Intersect.Network.Packets.Server;
@@ -24,7 +23,9 @@ using Intersect.Utilities;
 using Intersect.Framework;
 using Intersect.Models;
 using Intersect.Client.Interface.Shared;
-using Intersect.Network.Packets.Client;
+using Intersect.Framework.Core.GameObjects.Animations;
+using Intersect.GameObjects.Animations;
+using Microsoft.Extensions.Logging;
 
 namespace Intersect.Client.Networking;
 
@@ -106,7 +107,7 @@ internal sealed partial class PacketHandler
 
         if (!Registry.TryGetHandler(packet, out HandlePacketGeneric handler))
         {
-            Logger.Error($"No registered handler for {packet.GetType().FullName}!");
+            Logger.LogError($"No registered handler for {packet.GetType().FullName}!");
 
             return false;
         }
@@ -125,7 +126,7 @@ internal sealed partial class PacketHandler
             if (!preHooks.All(hook => hook.Handle(VirtualSender, packet)))
             {
                 // Hooks should not fail, if they do that's an error
-                Logger.Error($"PreHook handler failed for {packet.GetType().FullName}.");
+                Logger.LogError($"PreHook handler failed for {packet.GetType().FullName}.");
                 return false;
             }
         }
@@ -140,7 +141,7 @@ internal sealed partial class PacketHandler
             if (!postHooks.All(hook => hook.Handle(VirtualSender, packet)))
             {
                 // Hooks should not fail, if they do that's an error
-                Logger.Error($"PostHook handler failed for {packet.GetType().FullName}.");
+                Logger.LogError($"PostHook handler failed for {packet.GetType().FullName}.");
                 return false;
             }
         }
@@ -163,7 +164,7 @@ internal sealed partial class PacketHandler
     //ConfigPacket
     public void HandlePacket(IPacketSender packetSender, ConfigPacket packet)
     {
-        Log.Debug("Received configuration from server.");
+        ApplicationContext.Context.Value?.Logger.LogDebug("Received configuration from server.");
         Options.LoadFromServer(packet.Config);
         Globals.WaitingOnServer = false;
         MainMenu.HandleReceivedConfiguration();
@@ -173,7 +174,7 @@ internal sealed partial class PacketHandler
         }
         catch (Exception exception)
         {
-            Log.Error(exception);
+            ApplicationContext.Context.Value?.Logger.LogError(exception, "Error loading strings");
             throw;
         }
         Graphics.InitInGame();
@@ -217,7 +218,7 @@ internal sealed partial class PacketHandler
                     continue;
                 }
 
-                Log.Warn($"Failed to deserialized cached data for {cacheKey}, will fetch again");
+                ApplicationContext.Context.Value?.Logger.LogWarning($"Failed to deserialized cached data for {cacheKey}, will fetch again");
             }
 
             cacheKeys.Add(new ObjectCacheKey<MapBase>(new Id<MapBase>(mapId)));
@@ -237,6 +238,16 @@ internal sealed partial class PacketHandler
 
         if (!skipSave)
         {
+            ApplicationContext.CurrentContext.Logger.LogDebug(
+                "Saving map {Id} @ ({GridX}, {GridY}) revision {Revision} version {Version} holds {CameraHolds}",
+                packet.MapId,
+                packet.GridX,
+                packet.GridY,
+                packet.Revision,
+                packet.CacheVersion,
+                $"[{string.Join(", ", packet.CameraHolds ?? [])}]"
+            );
+
             ObjectCacheData<MapBase> cacheData = new()
             {
                 Id = new Id<MapBase>(mapId),
@@ -247,7 +258,7 @@ internal sealed partial class PacketHandler
 
             if (!ObjectDataDiskCache<MapBase>.TrySave(cacheData))
             {
-                Log.Warn($"Failed to save cache for {cacheKey}");
+                ApplicationContext.CurrentContext.Logger.LogWarning("Failed to save cache for {CacheKey}", cacheKey);
             }
         }
 
@@ -255,7 +266,7 @@ internal sealed partial class PacketHandler
 
         if (MapInstance.TryGet(mapId, out var mapInstance))
         {
-            if (packet.Revision == mapInstance.Revision)
+            if (skipSave && packet.Revision == mapInstance.Revision)
             {
                 return;
             }
@@ -271,28 +282,56 @@ internal sealed partial class PacketHandler
             mapInstance.LoadTileData(packet.TileData);
             mapInstance.AttributeData = packet.AttributeData;
             mapInstance.CreateMapSounds();
-            if (mapId == Globals.Me.MapId)
+
+            if (mapId == Globals.Me?.MapId)
             {
-                Audio.PlayMusic(mapInstance.Music, ClientConfiguration.Instance.MusicFadeTimer, ClientConfiguration.Instance.MusicFadeTimer, true);
+                Audio.PlayMusic(
+                    mapInstance.Music,
+                    ClientConfiguration.Instance.MusicFadeTimer,
+                    ClientConfiguration.Instance.MusicFadeTimer,
+                    true
+                );
             }
 
-            mapInstance.GridX = packet.GridX;
-            mapInstance.GridY = packet.GridY;
-            mapInstance.CameraHolds = packet.CameraHolds;
+            if (!Globals.GridMaps.TryGetValue(packet.MapId, out var gridPosition))
+            {
+                ApplicationContext.CurrentContext.Logger.LogDebug(
+                    "Falling back to packet position for map '{MapName}' ({MapId})",
+                    mapInstance.Name,
+                    mapInstance.Id
+                );
+                gridPosition = new Point(packet.GridX, packet.GridY);
+            }
+
+            mapInstance.GridX = gridPosition.X;
+            mapInstance.GridY = gridPosition.Y;
+            mapInstance.CameraHolds = packet.CameraHolds ?? [false, false, false, false];
+
+            ApplicationContext.CurrentContext.Logger.LogDebug(
+                "Loading map {Id} ({Name}) @ ({GridX}, {GridY}) revision {Revision} version {Version} holds {CameraHolds}",
+                mapInstance.Id,
+                mapInstance.Name,
+                gridPosition.X,
+                gridPosition.Y,
+                mapInstance.Revision,
+                packet.CacheVersion,
+                $"[{string.Join(", ", mapInstance.CameraHolds)}]"
+            );
+
             mapInstance.Autotiles.InitAutotiles(mapInstance.GenerateAutotileGrid());
 
-            if (Globals.PendingEvents.ContainsKey(mapId))
+            if (Globals.PendingEvents.TryGetValue(mapId, out var pendingEventsForMap))
             {
-                foreach (var evt in Globals.PendingEvents[mapId])
+                foreach (var (eventId, eventEntityPacket) in pendingEventsForMap)
                 {
-                    mapInstance.AddEvent(evt.Key, evt.Value);
+                    mapInstance.AddEvent(eventId, eventEntityPacket);
                 }
 
-                Globals.PendingEvents[mapId].Clear();
+                pendingEventsForMap.Clear();
             }
         }
 
-        MapInstance.OnMapLoaded?.Invoke(mapInstance);
+        mapInstance.MarkLoadFinished();
     }
 
     //MapPacket
@@ -404,32 +443,35 @@ internal sealed partial class PacketHandler
     }
 
     //MapEntitiesPacket
-    public void HandlePacket(IPacketSender packetSender, MapEntitiesPacket packet)
+    public void HandlePacket(IPacketSender packetSender, MapEntitiesPacket entitiesPacket)
     {
-        var mapEntities = new Dictionary<Guid, List<Guid>>();
-        foreach (var pkt in packet.MapEntities)
+        Dictionary<Guid, HashSet<Guid>> entitiesByMapId = [];
+        foreach (var entityPacket in entitiesPacket.MapEntities)
         {
-            HandlePacket(pkt);
+            HandlePacket(entityPacket);
 
-            if (!mapEntities.ContainsKey(pkt.MapId))
+            if (!entitiesByMapId.TryGetValue(entityPacket.MapId, out var value))
             {
-                mapEntities.Add(pkt.MapId, new List<Guid>());
+                value = [];
+                entitiesByMapId.Add(entityPacket.MapId, value);
             }
 
-            mapEntities[pkt.MapId].Add(pkt.EntityId);
+            value.Add(entityPacket.EntityId);
         }
 
-        //Remove any entities on the map that shouldn't be there anymore!
-        foreach (var entities in mapEntities)
+        // Remove any entities on the map that shouldn't be there anymore!
+        foreach (var (mapId, entitiesOnMap) in entitiesByMapId)
         {
-            foreach (var entity in Globals.Entities)
+            foreach (var (entityId, entity) in Globals.Entities)
             {
-                if (entity.Value.MapId == entities.Key && !entities.Value.Contains(entity.Key))
+                if (entity.MapId != mapId || entitiesOnMap.Contains(entityId))
                 {
-                    if (!Globals.EntitiesToDispose.Contains(entity.Key) && entity.Value != Globals.Me && !(entity.Value is Projectile))
-                    {
-                        Globals.EntitiesToDispose.Add(entity.Key);
-                    }
+                    continue;
+                }
+
+                if (!Globals.EntitiesToDispose.Contains(entityId) && entity != Globals.Me && entity is not Projectile)
+                {
+                    Globals.EntitiesToDispose.Add(entityId);
                 }
             }
         }
@@ -495,7 +537,7 @@ internal sealed partial class PacketHandler
 
         if (en == Globals.Me)
         {
-            Log.Debug($"received epp: {Timing.Global.Milliseconds}");
+            ApplicationContext.Context.Value?.Logger.LogDebug($"received epp: {Timing.Global.Milliseconds}");
         }
 
         if (en == Globals.Me &&
@@ -677,7 +719,7 @@ internal sealed partial class PacketHandler
             return;
         }
 
-        if (en is Player && Options.Combat.MovementCancelsCast)
+        if (en is Player && Options.Instance.Combat.MovementCancelsCast)
         {
             en.CastTime = 0;
         }
@@ -709,43 +751,43 @@ internal sealed partial class PacketHandler
             switch (en.Dir)
             {
                 case Direction.Up:
-                    en.OffsetY = Options.TileWidth;
+                    en.OffsetY = Options.Instance.Map.TileWidth;
                     en.OffsetX = 0;
 
                     break;
                 case Direction.Down:
-                    en.OffsetY = -Options.TileWidth;
+                    en.OffsetY = -Options.Instance.Map.TileWidth;
                     en.OffsetX = 0;
 
                     break;
                 case Direction.Left:
                     en.OffsetY = 0;
-                    en.OffsetX = Options.TileWidth;
+                    en.OffsetX = Options.Instance.Map.TileWidth;
 
                     break;
                 case Direction.Right:
                     en.OffsetY = 0;
-                    en.OffsetX = -Options.TileWidth;
+                    en.OffsetX = -Options.Instance.Map.TileWidth;
 
                     break;
                 case Direction.UpLeft:
-                    en.OffsetY = Options.TileHeight;
-                    en.OffsetX = Options.TileWidth;
+                    en.OffsetY = Options.Instance.Map.TileHeight;
+                    en.OffsetX = Options.Instance.Map.TileWidth;
 
                     break;
                 case Direction.UpRight:
-                    en.OffsetY = Options.TileHeight;
-                    en.OffsetX = -Options.TileWidth;
+                    en.OffsetY = Options.Instance.Map.TileHeight;
+                    en.OffsetX = -Options.Instance.Map.TileWidth;
 
                     break;
                 case Direction.DownLeft:
-                    en.OffsetY = -Options.TileHeight;
-                    en.OffsetX = Options.TileWidth;
+                    en.OffsetY = -Options.Instance.Map.TileHeight;
+                    en.OffsetX = Options.Instance.Map.TileWidth;
 
                     break;
                 case Direction.DownRight:
-                    en.OffsetY = -Options.TileHeight;
-                    en.OffsetX = -Options.TileWidth;
+                    en.OffsetY = -Options.Instance.Map.TileHeight;
+                    en.OffsetX = -Options.Instance.Map.TileWidth;
 
                     break;
             }
@@ -878,7 +920,7 @@ internal sealed partial class PacketHandler
                 {
                     Interface.Interface.GameUi.PlayerStatusWindow.ShouldUpdateStatuses = true;
                 }
-                else if (en.Id == Globals.Me.TargetIndex && Globals.Me.TargetBox != null)
+                else if (en.Id == Globals.Me.TargetId && Globals.Me.TargetBox != null)
                 {
                     Globals.Me.TargetBox.ShouldUpdateStatuses = true;
                 }
@@ -963,7 +1005,7 @@ internal sealed partial class PacketHandler
             {
                 Interface.Interface.GameUi.PlayerStatusWindow.ShouldUpdateStatuses = true;
             }
-            else if (id == Globals.Me.TargetIndex && Globals.Me.TargetBox != null)
+            else if (id == Globals.Me.TargetId && Globals.Me.TargetBox != null)
             {
                 Globals.Me.TargetBox.ShouldUpdateStatuses = true;
             }
@@ -1164,23 +1206,12 @@ internal sealed partial class PacketHandler
     //InputVariablePacket
     public void HandlePacket(IPacketSender packetSender, InputVariablePacket packet)
     {
-        var type = InputBox.InputType.NumericInput;
-        switch (packet.Type)
+        var type = packet.Type switch
         {
-            case VariableDataType.String:
-                type = InputBox.InputType.TextInput;
-
-                break;
-            case VariableDataType.Integer:
-            case VariableDataType.Number:
-                type = InputBox.InputType.NumericInput;
-
-                break;
-            case VariableDataType.Boolean:
-                type = InputBox.InputType.YesNo;
-
-                break;
-        }
+            VariableDataType.String => InputBox.InputType.TextInput,
+            VariableDataType.Boolean => InputBox.InputType.YesNoCancel,
+            _ => InputBox.InputType.NumericInput,
+        };
 
         _ = new InputBox(
             title: packet.Title,
@@ -1343,18 +1374,18 @@ internal sealed partial class PacketHandler
     //HotbarPacket
     public void HandlePacket(IPacketSender packetSender, HotbarPacket packet)
     {
-        for (var i = 0; i < Options.Instance.PlayerOpts.HotbarSlotCount; i++)
+        for (var i = 0; i < Options.Instance.Player.HotbarSlotCount; i++)
         {
             if (Globals.Me == null)
             {
-                Log.Debug("Can't set hotbar, Globals.Me is null!");
+                ApplicationContext.Context.Value?.Logger.LogDebug("Can't set hotbar, Globals.Me is null!");
 
                 break;
             }
 
             if (Globals.Me.Hotbar == null)
             {
-                Log.Debug("Can't set hotbar, hotbar is null!");
+                ApplicationContext.Context.Value?.Logger.LogDebug("Can't set hotbar, hotbar is null!");
 
                 break;
             }
@@ -1477,66 +1508,142 @@ internal sealed partial class PacketHandler
     public void HandlePacket(IPacketSender packetSender, PlayAnimationPacket packet)
     {
         var mapId = packet.MapId;
-        var animId = packet.AnimationId;
+        var animationDescriptorId = packet.AnimationId;
         var targetType = packet.TargetType;
         var entityId = packet.EntityId;
-        if (targetType == -1)
+
+        AnimationSource animationSource = new(packet.SourceType, packet.SourceId);
+
+        switch (targetType)
         {
-            var map = MapInstance.Get(mapId);
-            if (map != null)
+            case -1:
             {
-                map.AddTileAnimation(animId, packet.X, packet.Y, packet.Direction);
-            }
-        }
-        else if (targetType == 1)
-        {
-            if (Globals.Entities.ContainsKey(entityId))
-            {
-                if (Globals.Entities[entityId] != null && !Globals.EntitiesToDispose.Contains(entityId))
+                if (!MapInstance.TryGet(mapId, out var map))
                 {
-                    var animBase = AnimationBase.Get(animId);
-                    if (animBase != null)
-                    {
-                        var animInstance = new Animation(
-                            animBase, false, packet.Direction != Direction.None, -1, Globals.Entities[entityId]
-                        );
-
-                        if (packet.Direction > Direction.None)
-                        {
-                            animInstance.SetDir(packet.Direction);
-                        }
-
-                        Globals.Entities[entityId].Animations.Add(animInstance);
-                    }
+                    return;
                 }
+
+                map.AddTileAnimation(
+                    animationDescriptorId,
+                    packet.X,
+                    packet.Y,
+                    packet.Direction,
+                    source: animationSource
+                );
+
+                break;
             }
-        }
-        else if (targetType == 2)
-        {
-            var map = MapInstance.Get(mapId);
-            if (map != null)
+
+            case 1:
             {
-                if (map.LocalEntities.ContainsKey(entityId))
+                if (Globals.EntitiesToDispose.Contains(entityId))
                 {
-                    if (map.LocalEntities[entityId] != null)
-                    {
-                        var animBase = AnimationBase.Get(animId);
-                        if (animBase != null)
-                        {
-                            var animInstance = new Animation(
-                                animBase, false, packet.Direction == Direction.None, -1,
-                                map.LocalEntities[entityId]
-                            );
-
-                            if (packet.Direction > Direction.None)
-                            {
-                                animInstance.SetDir(packet.Direction);
-                            }
-
-                            map.LocalEntities[entityId].Animations.Add(animInstance);
-                        }
-                    }
+                    return;
                 }
+
+                if (!Globals.Entities.TryGetValue(entityId, out var entity))
+                {
+                    return;
+                }
+
+                if (!AnimationBase.TryGet(animationDescriptorId, out var animationDescriptor))
+                {
+                    return;
+                }
+
+                if (animationSource == default ||
+                    !entity.AnimationsBySource.TryGetValue(animationSource, out var existingAnimation) ||
+                    entity.Animations.Remove(existingAnimation))
+                {
+                    var animationInstance = new Animation(
+                        animationDescriptor,
+                        false,
+                        packet.Direction != Direction.None,
+                        -1,
+                        entity,
+                        source: animationSource
+                    );
+
+                    if (packet.Direction > Direction.None)
+                    {
+                        animationInstance.SetDir(packet.Direction);
+                    }
+
+                    if (animationSource != default)
+                    {
+                        entity.AnimationsBySource[animationSource] = animationInstance;
+                    }
+
+                    entity.Animations.Add(animationInstance);
+                }
+                else
+                {
+                    ApplicationContext.CurrentContext.Logger.LogDebug(
+                        "Unable to add new instance of animation {AnimationId} to entity {EntityId} ({EntityName})  because one already exists for the animation source {AnimationSource} and it could not be removed",
+                        animationDescriptorId,
+                        entity.Id,
+                        entity.Name,
+                        animationSource
+                    );
+                }
+
+                break;
+            }
+
+            case 2:
+            {
+                if (!MapInstance.TryGet(mapId, out var map))
+                {
+                    return;
+                }
+
+                if (!map.LocalEntities.TryGetValue(entityId, out var entity))
+                {
+                    return;
+                }
+
+                if (!AnimationBase.TryGet(animationDescriptorId, out var animationDescriptor))
+                {
+                    return;
+                }
+
+                if (animationSource == default ||
+                    !entity.AnimationsBySource.TryGetValue(animationSource, out var existingAnimation) ||
+                    entity.Animations.Remove(existingAnimation))
+                {
+                    var animationInstance = new Animation(
+                        animationDescriptor,
+                        false,
+                        packet.Direction == Direction.None,
+                        -1,
+                        entity,
+                        source: animationSource
+                    );
+
+                    if (packet.Direction > Direction.None)
+                    {
+                        animationInstance.SetDir(packet.Direction);
+                    }
+
+                    if (animationSource != default)
+                    {
+                        entity.AnimationsBySource[animationSource] = animationInstance;
+                    }
+
+                    entity.Animations.Add(animationInstance);
+                }
+                else
+                {
+                    ApplicationContext.CurrentContext.Logger.LogDebug(
+                        "Unable to add new instance of animation {AnimationId} to entity {EntityId} ({EntityName}) because one already exists for the animation source {AnimationSource} and it could not be removed",
+                        animationDescriptorId,
+                        entity.Id,
+                        entity.Name,
+                        animationSource
+                    );
+                }
+
+                break;
             }
         }
     }
@@ -1731,16 +1838,21 @@ internal sealed partial class PacketHandler
     //EntityDashPacket
     public void HandlePacket(IPacketSender packetSender, EntityDashPacket packet)
     {
-        if (Globals.Entities.ContainsKey(packet.EntityId))
+        if (!Globals.Entities.TryGetValue(packet.EntityId, out var value))
         {
-            Globals.Entities[packet.EntityId]
-                .DashQueue.Enqueue(
-                    new Dash(
-                        packet.EndMapId, packet.EndX, packet.EndY,
-                        packet.DashTime, packet.Direction
-                    )
-                );
+            return;
         }
+
+        value.DashQueue.Enqueue(
+            new Dash(
+                packet.EndMapId,
+                packet.EndX,
+                packet.EndY,
+                packet.DashEndMilliseconds,
+                packet.DashLengthMilliseconds,
+                packet.Direction
+            )
+        );
     }
 
     //MapGridPacket
@@ -1767,7 +1879,7 @@ internal sealed partial class PacketHandler
                 Globals.MapGrid[x, y] = packet.Grid[x, y];
                 if (Globals.MapGrid[x, y] != Guid.Empty)
                 {
-                    Globals.GridMaps.Add(Globals.MapGrid[x, y]);
+                    Globals.GridMaps[Globals.MapGrid[x, y]] = new Point(x, y);
                     // MapInstance.UpdateMapRequestTime(Globals.MapGrid[x, y]);
                 }
             }
@@ -1919,12 +2031,12 @@ internal sealed partial class PacketHandler
     {
         if (!string.IsNullOrEmpty(packet.TradePartner))
         {
-            Globals.Trade = new Item[2, Options.MaxInvItems];
+            Globals.Trade = new Item[2, Options.Instance.Player.MaxInventory];
 
             //Gotta initialize the trade values
             for (var x = 0; x < 2; x++)
             {
-                for (var y = 0; y < Options.MaxInvItems; y++)
+                for (var y = 0; y < Options.Instance.Player.MaxInventory; y++)
                 {
                     Globals.Trade[x, y] = new Item();
                 }
@@ -2138,11 +2250,27 @@ internal sealed partial class PacketHandler
     //CancelCastPacket
     public void HandlePacket(IPacketSender packetSender, CancelCastPacket packet)
     {
-        if (Globals.Entities.ContainsKey(packet.EntityId))
+        if (!Globals.Entities.TryGetValue(packet.EntityId, out var entity))
         {
-            Globals.Entities[packet.EntityId].CastTime = 0;
-            Globals.Entities[packet.EntityId].SpellCast = Guid.Empty;
+            return;
         }
+
+        AnimationSource animationSource = new(AnimationSourceType.SpellCast, entity.SpellCast);
+
+        if (entity.AnimationsBySource.Remove(animationSource, out var removedAnimation))
+        {
+            _ = entity.Animations.Remove(removedAnimation);
+            removedAnimation.Dispose();
+
+            ApplicationContext.CurrentContext.Logger.LogDebug(
+                "Removing cancelled spell cast animation {AnimationId} ({AnimationName})",
+                removedAnimation.MyBase?.Id,
+                removedAnimation.MyBase?.Name
+            );
+        }
+
+        entity.CastTime = 0;
+        entity.SpellCast = default;
     }
 
     //GuildPacket

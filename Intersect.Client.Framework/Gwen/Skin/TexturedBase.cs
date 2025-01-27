@@ -1,12 +1,10 @@
 using System.Diagnostics;
-
 using Intersect.Client.Framework.File_Management;
 using Intersect.Client.Framework.GenericClasses;
 using Intersect.Client.Framework.Graphics;
 using Intersect.Client.Framework.Gwen.Control;
 using Intersect.Client.Framework.Gwen.ControlInternal;
 using Intersect.Client.Framework.Gwen.Skin.Texturing;
-
 using Single = Intersect.Client.Framework.Gwen.Skin.Texturing.Single;
 
 namespace Intersect.Client.Framework.Gwen.Skin;
@@ -1643,7 +1641,7 @@ public partial class TexturedBase : Skin.Base
         else
         {
             var rect = control.RenderBounds;
-            Renderer.DrawColor = control.RenderColor;
+            Renderer.DrawColor = control.IsDisabled ? Colors.Button.Disabled : control.RenderColor;
 
             if (horizontal)
             {

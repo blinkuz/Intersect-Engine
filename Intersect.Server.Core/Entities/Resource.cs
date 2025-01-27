@@ -44,7 +44,7 @@ public partial class Resource : Entity
         {
             Die(dropItems, killer);
         }
-        
+
         PacketSender.SendEntityDie(this);
         PacketSender.SendEntityLeave(this);
     }
@@ -55,10 +55,10 @@ public partial class Resource : Entity
         {
             base.Die(false, killer);
         }
-        
+
         Sprite = Base.Exhausted.Graphic;
         Passable = Base.WalkableAfter;
-        Dead = true;
+        IsDead = true;
 
         if (dropItems)
         {
@@ -95,13 +95,13 @@ public partial class Resource : Entity
             if (Randomization.Next(1, 10001) <= drop.Chance * 100 && ItemBase.Get(drop.ItemId) != null)
             {
                 var slot = new InventorySlot(itemSlot);
-                slot.Set(new Item(drop.ItemId, drop.Quantity));
+                slot.Set(new Item(drop.ItemId, Randomization.Next(drop.MinQuantity, drop.MaxQuantity + 1)));
                 Items.Add(slot);
                 itemSlot++;
             }
         }
 
-        Dead = false;
+        IsDead = false;
         PacketSender.SendEntityDataToProximity(this);
         PacketSender.SendEntityPositionToAll(this);
     }
@@ -158,7 +158,7 @@ public partial class Resource : Entity
             {
                 selectedTile = tiles[Randomization.Next(0, tiles.Count)];
             }
-            
+
             var itemSource = AsItemSource();
 
             // Drop items
@@ -177,7 +177,7 @@ public partial class Resource : Entity
 
         Items.Clear();
     }
-    
+
     protected override EntityItemSource? AsItemSource()
     {
         return new EntityItemSource
@@ -191,13 +191,13 @@ public partial class Resource : Entity
     public override void ProcessRegen()
     {
         //For now give npcs/resources 10% health back every regen tick... in the future we should put per-npc and per-resource regen settings into their respective editors.
-        if (!IsDead())
+        if (!IsDead)
         {
             if (Base == null)
             {
                 return;
             }
-            
+
             var vital = Vital.Health;
 
             var vitalId = (int) vital;
@@ -216,7 +216,7 @@ public partial class Resource : Entity
 
     public override bool IsPassable()
     {
-        return IsDead() & Base.WalkableAfter || !IsDead() && Base.WalkableBefore;
+        return IsDead & Base.WalkableAfter || !IsDead && Base.WalkableBefore;
     }
 
     public override EntityPacket EntityPacket(EntityPacket packet = null, Player forPlayer = null)
@@ -230,7 +230,7 @@ public partial class Resource : Entity
 
         var pkt = (ResourceEntityPacket) packet;
         pkt.ResourceId = Base.Id;
-        pkt.IsDead = IsDead();
+        pkt.IsDead = IsDead;
 
         return pkt;
     }

@@ -9,8 +9,12 @@ using Intersect.Client.Interface.Game.DescriptionWindows;
 using Intersect.Client.Items;
 using Intersect.Client.Localization;
 using Intersect.Client.Spells;
+using Intersect.Core;
+using Intersect.Framework.Reflection;
 using Intersect.GameObjects;
+using Intersect.Localization;
 using Intersect.Utilities;
+using Microsoft.Extensions.Logging;
 
 namespace Intersect.Client.Interface.Game.Hotbar;
 
@@ -20,20 +24,23 @@ public partial class HotbarItem
     private const int ItemXPadding = 4;
     private const int ItemYPadding = 4;
 
+    private readonly ImagePanel _contentPanel;
+    private readonly Label _cooldownLabel;
+    private readonly Label _equipLabel;
+    private readonly ImagePanel _icon;
+    private readonly Label _keyLabel;
+
     private bool _canDrag;
     private long _clickTime;
-    private ImagePanel _contentPanel;
-    private Label _cooldownLabel;
     private Guid _currentId = Guid.Empty;
     private ItemBase? _currentItem = null;
     private SpellBase? _currentSpell = null;
     private Draggable _dragIcon;
-    private Label _equipLabel;
     private bool _isDragging;
     private bool _isEquipped;
     private bool _isFaded;
     private readonly Base _hotbarWindow;
-    private readonly byte _hotbarSlotIndex;
+    private readonly int _hotbarSlotIndex;
     private ControlValue? _hotKey;
     private Item? _inventoryItem = null;
     private int _inventoryItemIndex = -1;
@@ -45,43 +52,44 @@ public partial class HotbarItem
     private Spell? _spellBookItem = null;
     private SpellDescriptionWindow? _spellDescWindow;
     private bool _textureLoaded;
-    public Label KeyLabel;
-    public ImagePanel HotbarIcon;
 
-    public HotbarItem(byte index, Base hotbarWindow)
+    public HotbarItem(int hotbarSlotIndex, Base hotbarWindow)
     {
-        _hotbarSlotIndex = index;
+        _hotbarSlotIndex = hotbarSlotIndex;
         _hotbarWindow = hotbarWindow;
-    }
 
-    public void Setup()
-    {
+        _icon = new ImagePanel(hotbarWindow, $"HotbarContainer{hotbarSlotIndex}");
+
         // Content Panel is layered on top of the container (shows the Item or Spell Icon).
-        _contentPanel = new ImagePanel(HotbarIcon, nameof(HotbarIcon) + _hotbarSlotIndex);
+        _contentPanel = new ImagePanel(HotbarIcon, $"{nameof(HotbarIcon)}{_hotbarSlotIndex}");
         _contentPanel.HoverEnter += hotbarIcon_HoverEnter;
         _contentPanel.HoverLeave += hotbarIcon_HoverLeave;
         _contentPanel.RightClicked += hotbarIcon_RightClicked;
         _contentPanel.Clicked += hotbarIcon_Clicked;
 
-        _equipLabel = new Label(HotbarIcon, nameof(_equipLabel) + _hotbarSlotIndex)
+        _equipLabel = new Label(_icon, nameof(_equipLabel) + _hotbarSlotIndex)
         {
             IsHidden = true,
             Text = Strings.Inventory.EquippedSymbol,
             TextColor = new Color(255, 255, 255, 255)
         };
 
-        _quantityLabel = new Label(HotbarIcon, nameof(_quantityLabel) + _hotbarSlotIndex)
+        _quantityLabel = new Label(_icon, nameof(_quantityLabel) + _hotbarSlotIndex)
         {
             IsHidden = true,
             TextColor = new Color(255, 255, 255, 255)
         };
 
-        _cooldownLabel = new Label(HotbarIcon, nameof(_cooldownLabel) + _hotbarSlotIndex)
+        _cooldownLabel = new Label(_icon, nameof(_cooldownLabel) + _hotbarSlotIndex)
         {
             IsHidden = true,
             TextColor = new Color(255, 255, 255, 255)
         };
+
+        _keyLabel = new Label(_icon, $"HotbarLabel{hotbarSlotIndex}");
     }
+
+    public ImagePanel HotbarIcon => _icon;
 
     public void Activate()
     {
@@ -208,10 +216,25 @@ public partial class HotbarItem
         var keybind = Controls.ActiveControls.ControlMapping[Control.Hotkey1 + _hotbarSlotIndex].Bindings[0];
         if (_hotKey == null || _hotKey.Modifier != keybind.Modifier || _hotKey.Key != keybind.Key)
         {
-            string modifierText = keybind.Modifier != Keys.None ? $"{Strings.Keys.KeyDictionary[Enum.GetName(typeof(Keys), keybind.Modifier)!.ToLower()]} + " : "";
-            string keyText = Strings.Keys.KeyDictionary[Enum.GetName(typeof(Keys), keybind.Key)!.ToLower()];
+            var keyName = keybind.Key.GetName(isModifier: false).ToLowerInvariant();
+            if (!Strings.Keys.KeyDictionary.TryGetValue(keyName, out var localizedKeyString))
+            {
+                localizedKeyString = keyName;
+            }
 
-            KeyLabel.SetText($"{modifierText}{keyText}");
+            string assembledKeyText = localizedKeyString;
+
+            var modifier = keybind.Modifier;
+            if (modifier is not Keys.None)
+            {
+                var modifierName = modifier.GetName(isModifier: true).ToLowerInvariant();
+                string modifierText = Strings.Keys.KeyDictionary.TryGetValue(modifierName, out var localizedModifierString)
+                    ? localizedModifierString
+                    : modifierName;
+                assembledKeyText = Strings.Keys.KeyNameWithModifier.ToString(modifierText, assembledKeyText);
+            }
+
+            _keyLabel.SetText(assembledKeyText);
 
             _hotKey = keybind;
         }
@@ -430,8 +453,12 @@ public partial class HotbarItem
             if (!_isDragging)
             {
                 _contentPanel.IsHidden = false;
-                _equipLabel.IsHidden = _currentItem == null || !Globals.Me.IsEquipped(_inventoryItemIndex) || _inventoryItemIndex < 0;
-                _quantityLabel.IsHidden = _currentItem == null || !_currentItem.Stackable || _inventoryItemIndex < 0;
+
+                var equipLabelIsHidden = _currentItem == null || !Globals.Me.IsEquipped(_inventoryItemIndex) || _inventoryItemIndex < 0;
+                _equipLabel.IsHidden = equipLabelIsHidden;
+
+                var quantityLabelIsHidden = _currentItem is not { Stackable: true } || _inventoryItemIndex < 0;
+                _quantityLabel.IsHidden = quantityLabelIsHidden;
 
                 if (_mouseOver)
                 {
@@ -496,7 +523,7 @@ public partial class HotbarItem
 
                     if (Interface.GameUi.Hotbar.RenderBounds().IntersectsWith(dragRect))
                     {
-                        for (var i = 0; i < Options.Instance.PlayerOpts.HotbarSlotCount; i++)
+                        for (var i = 0; i < Options.Instance.Player.HotbarSlotCount; i++)
                         {
                             if (Interface.GameUi.Hotbar.Items[i].RenderBounds().IntersectsWith(dragRect))
                             {

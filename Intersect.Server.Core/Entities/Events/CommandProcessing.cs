@@ -373,7 +373,7 @@ public static partial class CommandProcessing
         else if (command.Amount < 0)
         {
             player.SubVital(Vital.Health, -command.Amount);
-            player.CombatTimer = Timing.Global.Milliseconds + Options.CombatTime;
+            player.CombatTimer = Timing.Global.Milliseconds + Options.Instance.Combat.CombatTime;
             if (player.GetVital(Vital.Health) <= 0)
             {
                 lock (player.EntityLock)
@@ -404,7 +404,7 @@ public static partial class CommandProcessing
         else if (command.Amount < 0)
         {
             player.SubVital(Vital.Mana, -command.Amount);
-            player.CombatTimer = Timing.Global.Milliseconds + Options.CombatTime;
+            player.CombatTimer = Timing.Global.Milliseconds + Options.Instance.Combat.CombatTime;
         }
         else
         {
@@ -421,7 +421,7 @@ public static partial class CommandProcessing
         Stack<CommandInstance> callStack
     )
     {
-        player.LevelUp();
+        player.AddLevels();
     }
 
     //Give Experience Command
@@ -454,7 +454,14 @@ public static partial class CommandProcessing
             }
         }
 
-        player.GiveExperience(quantity);
+        if(quantity > 0)
+        {
+            player.GiveExperience(quantity);
+        }
+        else if (quantity < 0)
+        {
+            player.TakeExperience(Math.Abs(quantity), command.EnableLosingLevels, force: true);
+        }
     }
 
     //Change Level Command

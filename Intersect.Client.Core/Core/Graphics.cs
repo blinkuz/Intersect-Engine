@@ -8,6 +8,7 @@ using Intersect.Client.General;
 using Intersect.Client.Maps;
 using Intersect.Configuration;
 using Intersect.Enums;
+using Intersect.Framework.Core.GameObjects.Maps;
 using Intersect.GameObjects;
 using Intersect.Utilities;
 
@@ -104,7 +105,9 @@ public static partial class Graphics
 
     public static GameFont? UIFont;
 
-    public static float BaseWorldScale => Options.Instance?.MapOpts?.TileScale ?? 1;
+    public static float MinimumWorldScale => Options.Instance?.Map?.MinimumWorldScale ?? 1;
+
+    public static float MaximumWorldScale => Options.Instance?.Map?.MaximumWorldScale ?? 1;
 
     //Init Functions
     public static void InitGraphics()
@@ -137,10 +140,10 @@ public static partial class Graphics
 
     public static void InitInGame()
     {
-        RenderingEntities = new HashSet<Entity>[6, Options.MapHeight * 5];
+        RenderingEntities = new HashSet<Entity>[6, Options.Instance.Map.MapHeight * 5];
         for (var z = 0; z < 6; z++)
         {
-            for (var i = 0; i < Options.MapHeight * 5; i++)
+            for (var i = 0; i < Options.Instance.Map.MapHeight * 5; i++)
             {
                 RenderingEntities[z, i] = [];
             }
@@ -331,7 +334,7 @@ public static partial class Graphics
         // Handle our plugin drawing.
         Globals.OnGameDraw(DrawStates.BelowPlayer, deltaTime);
 
-        var mapHeight = Options.MapHeight;
+        var mapHeight = Options.Instance.Map.MapHeight;
         for (var y = 0; y < mapHeight * 5; y++)
         {
             for (var x = 0; x < 3; x++)
@@ -620,7 +623,7 @@ public static partial class Graphics
         }
 
         if (!new FloatRect(
-            map.X, map.Y, Options.TileWidth * Options.MapWidth, Options.TileHeight * Options.MapHeight
+            map.X, map.Y, Options.Instance.Map.TileWidth * Options.Instance.Map.MapWidth, Options.Instance.Map.TileHeight * Options.Instance.Map.MapHeight
         ).IntersectsWith(WorldViewport))
         {
             return;
@@ -644,8 +647,8 @@ public static partial class Graphics
         var mapBounds = new FloatRect(
             map.X,
             map.Y,
-            Options.TileWidth * Options.MapWidth,
-            Options.TileHeight * Options.MapHeight
+            Options.Instance.Map.TileWidth * Options.Instance.Map.MapWidth,
+            Options.Instance.Map.TileHeight * Options.Instance.Map.MapHeight
         );
 
         if (!mapBounds.IntersectsWith(WorldViewport))
@@ -938,8 +941,8 @@ public static partial class Graphics
             return;
         }
 
-        var mapWidth = Options.MapWidth * Options.TileWidth;
-        var mapHeight = Options.MapHeight * Options.TileHeight;
+        var mapWidth = Options.Instance.Map.MapWidth * Options.Instance.Map.TileWidth;
+        var mapHeight = Options.Instance.Map.MapHeight * Options.Instance.Map.TileHeight;
 
         var en = Globals.Me;
 
@@ -1000,6 +1003,10 @@ public static partial class Graphics
                 newView.X = restrictView.Right - newView.Width;
             }
         }
+        else if (Options.Instance.Map.GameBorderStyle == GameBorderStyle.Seamed)
+        {
+            newView.X = restrictView.X - (newView.Width - restrictView.Width) / 2;
+        }
 
         if (restrictView.Height >= newView.Height)
         {
@@ -1012,6 +1019,10 @@ public static partial class Graphics
             {
                 newView.Y = restrictView.Bottom - newView.Height;
             }
+        }
+        else if (Options.Instance.Map.GameBorderStyle == GameBorderStyle.Seamed)
+        {
+            newView.Y = restrictView.Y - (newView.Height - restrictView.Height) / 2;
         }
 
         CurrentView = new FloatRect(

@@ -146,7 +146,7 @@ public static partial class Globals
         }
     }
 
-    public static List<Guid> GridMaps = new List<Guid>();
+    public static Dictionary<Guid, Point> GridMaps = [];
 
     public static bool HasGameData = false;
 
@@ -225,7 +225,7 @@ public static partial class Globals
         {
             var entity = Entities[id];
 
-            if (!entity.IsDisposed() && entity.Type == type)
+            if (!entity.IsDisposed && entity.Type == type)
             {
                 EntitiesToDispose.Remove(entity.Id);
 

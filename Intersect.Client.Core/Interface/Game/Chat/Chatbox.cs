@@ -124,7 +124,7 @@ public partial class Chatbox
         mChatboxInput.Text = GetDefaultInputText();
         mChatboxInput.Clicked += ChatboxInput_Clicked;
         mChatboxInput.IsTabable = false;
-        mChatboxInput.SetMaxLength(Options.MaxChatLength);
+        mChatboxInput.SetMaxLength(Options.Instance.Chat.MaxChatLength);
         Interface.FocusElements.Add(mChatboxInput);
 
         mChannelLabel = new Label(mChatboxWindow, "ChannelLabel");
@@ -355,18 +355,19 @@ public partial class Chatbox
         if (mLastTab != mCurrentTab)
         {
             mChatboxMessages.Clear();
-            mChatboxMessages.GetHorizontalScrollBar().SetScrollAmount(0);
+            mChatboxMessages.HorizontalScrollBar.SetScrollAmount(0);
             mMessageIndex = 0;
             mReceivedMessage = true;
             mLastTab = mCurrentTab;
         }
 
-        var msgs = ChatboxMsg.GetMessages(mCurrentTab);
-        for (var i = mMessageIndex; i < msgs.Count; i++)
+        var messages = ChatboxMsg.GetMessages(mCurrentTab);
+        for (var i = mMessageIndex; i < messages.Count; i++)
         {
-            var msg = msgs[i];
+            var msg = messages[i];
             var myText = Interface.WrapText(
-                msg.Message, mChatboxMessages.Width - vScrollBar.Width - 8,
+                msg.Message,
+                mChatboxMessages.Width - vScrollBar.Width - 8,
                 mChatboxText.Font
             );
 
@@ -390,19 +391,12 @@ public partial class Chatbox
             mMessageIndex++;
         }
 
-
+        // ReSharper disable once InvertIf
         if (mReceivedMessage)
         {
             mChatboxMessages.InnerPanel.SizeToChildren(false, true);
             mChatboxMessages.UpdateScrollBars();
-            if (!scrollToBottom)
-            {
-                vScrollBar.SetScrollAmount(scrollAmount);
-            }
-            else
-            {
-                vScrollBar.SetScrollAmount(1);
-            }
+            vScrollBar.SetScrollAmount(scrollToBottom ? 1 : scrollAmount);
             mReceivedMessage = false;
         }
     }
@@ -501,7 +495,7 @@ public partial class Chatbox
     {
         ChatboxMsg.ClearMessages();
         mChatboxMessages.Clear();
-        mChatboxMessages.GetHorizontalScrollBar().SetScrollAmount(0);
+        mChatboxMessages.HorizontalScrollBar.SetScrollAmount(0);
         mMessageIndex = 0;
         mReceivedMessage = true;
         mLastTab = mCurrentTab;
@@ -557,12 +551,12 @@ public partial class Chatbox
         if (mLastChatTime > Timing.Global.MillisecondsUtc)
         {
             ChatboxMsg.AddMessage(new ChatboxMsg(Strings.Chatbox.TooFast, Color.Red, ChatMessageType.Error));
-            mLastChatTime = Timing.Global.MillisecondsUtc + Options.MinChatInterval;
+            mLastChatTime = Timing.Global.MillisecondsUtc + Options.Instance.Chat.MinIntervalBetweenChats;
 
             return;
         }
 
-        mLastChatTime = Timing.Global.MillisecondsUtc + Options.MinChatInterval;
+        mLastChatTime = Timing.Global.MillisecondsUtc + Options.Instance.Chat.MinIntervalBetweenChats;
 
         PacketSender.SendChatMsg(
             msg, byte.Parse(mChannelCombobox.SelectedItem.UserData.ToString())

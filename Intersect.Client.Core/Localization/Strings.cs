@@ -1,4 +1,5 @@
 using System.Reflection;
+using Intersect.Client.Core.Controls;
 using Intersect.Configuration;
 using Intersect.Core;
 using Intersect.Enums;
@@ -113,7 +114,8 @@ public static partial class Strings
 
             var rootType = typeof(Strings);
             var groupTypes = rootType.GetNestedTypes(BindingFlags.Static | BindingFlags.Public);
-            var missingStrings = new List<string>();
+            List<string> missingStrings = [];
+            List<string> argumentCountMismatch = [];
             foreach (var groupType in groupTypes)
             {
                 if (!serialized.TryGetValue(groupType.Name, out var serializedGroup))
@@ -147,7 +149,25 @@ public static partial class Strings
                             }
                             else
                             {
-                                fieldInfo.SetValue(null, new LocalizedString(jsonString));
+                                LocalizedString? existingLocalizedString = null;
+                                try
+                                {
+                                    existingLocalizedString = fieldInfo.GetValue(null) as LocalizedString;
+                                }
+                                catch
+                                {
+                                    // Ignore
+                                }
+
+                                LocalizedString newLocalizedString = new(jsonString);
+                                if (existingLocalizedString?.ArgumentCount != newLocalizedString.ArgumentCount)
+                                {
+                                    argumentCountMismatch.Add(
+                                        $"{groupType.Name}.{fieldInfo.Name} expected {existingLocalizedString?.ArgumentCount.ToString() ?? "ERROR"} argument(s) but the loaded string had {newLocalizedString.ArgumentCount}"
+                                    );
+                                }
+
+                                fieldInfo.SetValue(null, newLocalizedString);
                             }
                             break;
 
@@ -190,16 +210,17 @@ public static partial class Strings
                                     break;
                                 }
 
-                                _ = _methodInfoDeserializeDictionary.MakeGenericMethod(parameters.First()).Invoke(default, new object[]
-                                {
-                                            missingStrings,
+                                _ = _methodInfoDeserializeDictionary.MakeGenericMethod(parameters.First()).Invoke(default,
+                                [
+                                    missingStrings,
                                             groupType,
                                             fieldInfo,
                                             fieldValue,
                                             serializedGroup,
                                             serializedValue,
-                                            fieldValue
-                                });
+                                            fieldValue,
+                                ]
+                                );
                                 break;
                             }
                     }
@@ -208,8 +229,20 @@ public static partial class Strings
 
             if (missingStrings.Count > 0)
             {
-                ApplicationContext.Context.Value?.Logger.LogWarning($"Missing strings, overwriting strings file:\n\t{string.Join(",\n\t", missingStrings)}");
+                ApplicationContext.Context.Value?.Logger.LogWarning(
+                    "Missing strings, overwriting strings file:\n\t{Strings}",
+                    string.Join(",\n\t", missingStrings)
+                );
                 SaveSerialized(serialized);
+            }
+
+            if (argumentCountMismatch.Count > 0)
+            {
+                ApplicationContext.Context.Value?.Logger.LogWarning(
+                    "Argument count mismatch on {MismatchCount} strings:\n\t{Strings}",
+                    argumentCountMismatch.Count,
+                    string.Join(",\n\t", argumentCountMismatch)
+                );
             }
         }
         catch (Exception exception)
@@ -780,12 +813,13 @@ public static partial class Strings
     {
 
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
-        public static Dictionary<string, LocalizedString> KeyDictionary = new Dictionary<string, LocalizedString>
+        public static Dictionary<string, LocalizedString> KeyDictionary = new()
         {
             {"attackinteract", @"Attack/Interact:"},
             {"block", @"Block:"},
             {"autotarget", @"Auto Target:"},
             {"enter", @"Chat:"},
+            {nameof(Control.HoldToSoftRetargetOnSelfCast).ToLowerInvariant(), @"Hold to Soft-Retarget on Self-Cast:"},
             {"hotkey0", @"Hot Key 0:"},
             {"hotkey1", @"Hot Key 1:"},
             {"hotkey2", @"Hot Key 2:"},
@@ -820,6 +854,7 @@ public static partial class Strings
             {"togglezoomout", "Toggle Zoom Out:"},
             {"holdtozoomout", "Hold to Zoom Out:"},
             {"togglefullscreen", "Toggle Fullscreen:"},
+            {nameof(Control.ToggleAutoSoftRetargetOnSelfCast).ToLowerInvariant(), "Toggle Auto Soft-Retarget on Self-Cast:"},
         };
 
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
@@ -1692,7 +1727,7 @@ public static partial class Strings
             {"lcontrolkey", @"L Control"},
             {"left", @"Left"},
             {"linefeed", @"LineFeed"},
-            {"lmenu", @"L Menu"},
+            {"lmenu", @"L Alt"},
             {"lshiftkey", @"L Shift"},
             {"lwin", @"LWin"},
             {"m", @"M"},
@@ -1759,7 +1794,7 @@ public static partial class Strings
             {"rcontrolkey", @"R Control"},
             {"return", @"Return"},
             {"right", @"Right"},
-            {"rmenu", @"R Menu"},
+            {"rmenu", @"R Alt"},
             {"rshiftkey", @"R Shift"},
             {"rwin", @"RWin"},
             {"s", @"S"},
@@ -1973,6 +2008,13 @@ public static partial class Strings
 
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
         public static LocalizedString AutoTurnToTarget = @"Auto-turn to target";
+
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public static LocalizedString AutoSoftRetargetOnSelfCast = @"Auto Soft-Retarget on Self-Cast";
+
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public static LocalizedString AutoSoftRetargetOnSelfCastTooltip =
+            @"When this is enabled and an enemy is targeted and a single-target friendly spell is used, the spell will be self-cast without removing the target on the enemy.";
 
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
         public static LocalizedString Title = @"Settings";

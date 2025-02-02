@@ -40,10 +40,10 @@ public class PluginEntry: ServerPluginEntry
             Environment.Exit(-3);
         }
 
-        context.Logging.Plugin.Info("Registering packet handlers...");
+        Logger.Write(LogLevel.Info,"Registering packet handlers...");
         if (!context.Packet.TryRegisterPacketHandler<GetRichPresenceConfigPacketHandler, GetRichPresenceConfigPacket>(out _))
         {
-            context.Logging.Plugin.Error($"Failed to register {nameof(GetRichPresenceConfigPacketHandler)} packet handler.");
+            Logger.Write(LogLevel.Error,$"Failed to register {nameof(GetRichPresenceConfigPacketHandler)} packet handler.");
             Environment.Exit(-4);
         }
     }

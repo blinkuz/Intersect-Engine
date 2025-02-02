@@ -1,4 +1,5 @@
 ﻿using Intersect.Plugins;
+using Microsoft.Extensions.Logging;
 
 namespace Blinkuz.Plugins.Tools.Logging;
 
@@ -18,21 +19,19 @@ public static class Logger
         switch (level)
         {
             case LogLevel.Error:
-                Context.Logging.Plugin.Error(message);
+                Context.Logging.Plugin.LogError(message);
                 break;
 
             case LogLevel.Info:
-                Context.Logging.Plugin.Info(message);
+                Context.Logging.Plugin.LogInformation(message);
                 break;
 
             case LogLevel.Warning:
-                Context.Logging.Plugin.Warn(message);
+                Context.Logging.Plugin.LogWarning(message);
                 break;
         }         
     }
 }
-
-
 
 public enum LogLevel
 {

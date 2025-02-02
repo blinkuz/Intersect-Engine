@@ -1,5 +1,5 @@
-﻿using Blinkuz.Plugins.Tools.Networking.Packets.Client;
-using Intersect.Logging;
+﻿using Blinkuz.Plugins.Tools.Logging;
+using Blinkuz.Plugins.Tools.Networking.Packets.Client;
 using Intersect.Network;
 using Intersect.Network.Packets.Server;
 
@@ -12,7 +12,7 @@ public class JoinGamePostHook: IPacketHandler<JoinGamePacket>
         var packetSent = packetSender.Send(new GetRichPresenceConfigPacket());
         if (!packetSent)
         {
-            Log.Error("Failed to send a message to the client!");
+            Logger.Write(LogLevel.Error,"Failed to send a message to the client!");
         }
 
         return packetSent;

@@ -60,6 +60,6 @@ public partial class RichPresenceConfigPacket : IntersectPacket
     public string SmallImageText { get; set; }
 
     [Key(11)]
-    public int MaxPartySize { get; set; } = Options.Instance.PartyOpts.MaximumMembers;
+    public int MaxPartySize { get; set; } = Options.Instance.Party.MaximumMembers;
     
 }

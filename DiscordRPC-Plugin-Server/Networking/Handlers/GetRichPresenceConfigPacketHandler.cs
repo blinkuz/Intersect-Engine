@@ -1,7 +1,7 @@
-﻿using Blinkuz.Plugins.Tools.Networking.Packets.Client;
+﻿using Blinkuz.Plugins.Tools.Logging;
+using Blinkuz.Plugins.Tools.Networking.Packets.Client;
 using Blinkuz.Plugins.Tools.Networking.Packets.Server;
 using DiscordRPC_Plugin_Server.Configuration;
-using Intersect.Logging;
 using Intersect.Network;
 
 namespace DiscordRPC_Plugin_Server.Networking.Handlers;
@@ -19,7 +19,7 @@ public class GetRichPresenceConfigPacketHandler: IPacketHandler<GetRichPresenceC
             string.IsNullOrEmpty(settings.SmallImageKey) ||
             string.IsNullOrEmpty(settings.SmallImageText))
         {
-            Log.Error("Incomplete settings. Please complete the Discord Rich Presence configuration.");
+            Logger.Write(LogLevel.Error,"Incomplete settings. Please complete the Discord Rich Presence configuration.");
             return false;
         }
         
@@ -40,7 +40,7 @@ public class GetRichPresenceConfigPacketHandler: IPacketHandler<GetRichPresenceC
         var packetSent = packetSender.Send(configPacket);
         if (!packetSent)
         {
-            Log.Error($"Failed to send a {nameof(RichPresenceConfigPacket)} packet to the client!");
+            Logger.Write(LogLevel.Error,$"Failed to send a {nameof(RichPresenceConfigPacket)} packet to the client!");
         }
         
         return packetSent;

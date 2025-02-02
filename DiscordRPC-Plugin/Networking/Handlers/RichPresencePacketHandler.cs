@@ -1,5 +1,4 @@
-﻿using Blinkuz.Plugins.Tools.Logging;
-using Blinkuz.Plugins.Tools.Networking.Packets.Server;
+﻿using Blinkuz.Plugins.Tools.Networking.Packets.Server;
 using Intersect.Network;
 
 namespace DiscordRPC_Plugin.Networking.Handlers;

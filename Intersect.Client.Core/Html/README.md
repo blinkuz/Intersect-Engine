@@ -26,7 +26,7 @@ The HTML UI integration provides the ability to create dynamic, interactive UI e
 ### Basic Setup
 
 ```csharp
-using Intersect.Client.Framework.Html;
+using Intersect.Client.Html;
 
 // Initialize the HTML manager (typically done once at startup)
 HtmlManager.Initialize();

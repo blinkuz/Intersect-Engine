@@ -1,8 +1,8 @@
 using System;
-using Intersect.Client.Framework.Html;
+using Intersect.Client.Html;
 using Intersect.Client.Framework.Gwen.Control;
 
-namespace Intersect.Client.Framework.Examples
+namespace Intersect.Client.Examples
 {
     /// <summary>
     /// Example usage of the HTML UI integration in Intersect Engine.

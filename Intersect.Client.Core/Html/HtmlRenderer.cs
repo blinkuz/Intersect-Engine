@@ -3,7 +3,7 @@ using System.Threading;
 using Intersect.Client.Framework.Graphics;
 using Intersect.Client.Framework.GenericClasses;
 
-namespace Intersect.Client.Framework.Html
+namespace Intersect.Client.Html
 {
     /// <summary>
     /// Placeholder HTML renderer for architectural integration testing.

@@ -1,7 +1,7 @@
 using NUnit.Framework;
-using Intersect.Client.Framework.Html;
+using Intersect.Client.Html;
 
-namespace Intersect.Tests.Client.Framework.Html
+namespace Intersect.Tests.Client.Html
 {
     [TestFixture]
     public class HtmlManagerTests

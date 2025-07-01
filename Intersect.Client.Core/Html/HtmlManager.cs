@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using Intersect.Client.Framework.Graphics;
 
-namespace Intersect.Client.Framework.Html
+namespace Intersect.Client.Html
 {
     /// <summary>
     /// Manages multiple Ultralight instances and provides both AppCore and headless rendering modes.

@@ -6,7 +6,7 @@ using Intersect.Client.Framework.Gwen.Control.EventArguments;
 using Intersect.Client.Framework.Graphics;
 using Intersect.Client.Framework.GenericClasses;
 
-namespace Intersect.Client.Framework.Html
+namespace Intersect.Client.Html
 {
     /// <summary>
     /// A Gwen.NET control that displays HTML content using Ultralight rendering.

@@ -28,4 +28,7 @@
     <EmbeddedResource Include="Gwen\Skin\skin-intersect.png" />
   </ItemGroup>
 
+  <ItemGroup Label="Package References">
+  </ItemGroup>
+
 </Project>
